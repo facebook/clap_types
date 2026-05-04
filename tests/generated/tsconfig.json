@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "strict": true,
+    "target": "ES2022"
+  },
+  "include": [
+    "../../examples/clients/**/*.ts",
+    "../../target/generated/typescript/**/*.ts",
+    "../../target/generated/typescript-node/**/*.ts",
+    "../../target/generated/typescript-zod/**/*.ts",
+    "./typescript_smoke.ts",
+    "./typescript_node_smoke.ts",
+    "./typescript_zod_smoke.ts"
+  ]
+}

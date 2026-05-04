@@ -1,0 +1,168 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run tests
+        run: cargo test --all-targets --all-features
+
+      - name: Run doc tests
+        run: cargo test --doc --all-features
+
+  generated-python:
+    name: Generated Python (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install Python checkers
+        run: python -m pip install --upgrade black ruff
+
+      - name: Generate fixtures
+        run: |
+          cargo run --example generate_complex_bindings -- target/generated
+          cargo run --example generate_derive_bindings -- target/generated
+
+      - name: Lint generated Python
+        run: python -m ruff check tests/generated/python_smoke.py tests/generated/python_package_smoke.py examples/clients/*.py target/generated/python target/generated/python-package
+
+      - name: Check generated Python formatting with Ruff
+        run: python -m ruff format --check tests/generated/python_smoke.py tests/generated/python_package_smoke.py examples/clients/*.py target/generated/python target/generated/python-package
+
+      - name: Check generated Python formatting with Black
+        run: python -m black --check tests/generated/python_smoke.py tests/generated/python_package_smoke.py examples/clients/*.py target/generated/python target/generated/python-package
+
+      - name: Compile generated Python
+        run: python -m compileall -q target/generated/python target/generated/python-package tests/generated/python_smoke.py tests/generated/python_package_smoke.py examples/clients
+
+      - name: Run generated Python smoke tests
+        run: |
+          python tests/generated/python_smoke.py target/generated
+          python tests/generated/python_package_smoke.py target/generated
+
+      - name: Run Python client examples
+        run: |
+          python examples/clients/python_repo_agent.py target/generated
+          python examples/clients/python_package_repo_agent.py target/generated
+          python examples/clients/python_opsctl_derive.py target/generated
+
+  generated-typescript:
+    name: Generated TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.1.x"
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Generate fixtures
+        run: npm run generate:fixtures
+
+      - name: Type-check generated TypeScript with Node
+        run: npm run check:generated:ts
+
+      - name: Run generated TypeScript smoke tests with Node
+        run: npm run test:generated:ts:node
+
+      - name: Run generated TypeScript smoke tests with Bun
+        run: npm run test:generated:ts:bun
+
+  generated-rust-kotlin:
+    name: Generated Rust and Kotlin
+    runs-on: ubuntu-latest
+    env:
+      KOTLIN_VERSION: "2.3.20"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Kotlin compiler
+        run: |
+          curl -L -o "$RUNNER_TEMP/kotlin-compiler.zip" "https://github.com/JetBrains/kotlin/releases/download/v${KOTLIN_VERSION}/kotlin-compiler-${KOTLIN_VERSION}.zip"
+          unzip -q "$RUNNER_TEMP/kotlin-compiler.zip" -d "$RUNNER_TEMP/kotlin"
+          echo "$RUNNER_TEMP/kotlin/kotlinc/bin" >> "$GITHUB_PATH"
+
+      - name: Generate fixtures
+        run: npm run generate:fixtures
+
+      - name: Lint generated Rust
+        run: npm run lint:generated:rust
+
+      - name: Compile and run generated Rust smoke test
+        run: npm run test:generated:rust
+
+      - name: Lint generated Kotlin
+        run: npm run lint:generated:kotlin
+
+      - name: Compile and run generated Kotlin smoke test
+        run: npm run test:generated:kotlin

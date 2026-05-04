@@ -1,0 +1,37 @@
+[package]
+name = "clap_types"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Generate type-safe command builders from clap command definitions"
+license = "MIT"
+repository = "https://github.com/facebook/clap_types"
+keywords = ["clap", "cli", "typescript", "bindings"]
+categories = ["command-line-interface", "development-tools"]
+
+[dependencies]
+clap = { version = "4.5.20", default-features = false, features = ["std"] }
+
+[features]
+default = []
+unstable-output-contracts = ["clap/unstable-ext"]
+
+[dev-dependencies]
+clap = { version = "4.5.20", default-features = false, features = ["derive", "help", "std"] }
+
+[[example]]
+name = "echo-args"
+path = "tests/fixtures/echo_args_bin.rs"
+
+[lints.rust]
+unsafe_code = "forbid"
+unreachable_pub = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+unused_qualifications = "warn"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"
+wildcard_imports = "warn"

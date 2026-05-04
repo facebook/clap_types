@@ -1,0 +1,23 @@
+{
+  "name": "clap_types-generated-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate:fixtures": "cargo run --example generate_complex_bindings -- target/generated && cargo run --example generate_derive_bindings -- target/generated",
+    "check:generated:ts": "tsc --noEmit --project tests/generated/tsconfig.json",
+    "lint:generated:rust": "bash scripts/lint_generated_rust.sh",
+    "test:generated:rust": "bash scripts/test_generated_rust.sh",
+    "check:generated:rust": "npm run lint:generated:rust && npm run test:generated:rust",
+    "lint:generated:kotlin": "bash scripts/lint_generated_kotlin.sh",
+    "test:generated:kotlin": "bash scripts/test_generated_kotlin.sh",
+    "check:generated:kotlin": "npm run lint:generated:kotlin && npm run test:generated:kotlin",
+    "test:generated:ts:bun": "bun tests/generated/typescript_smoke.ts && bun tests/generated/typescript_zod_smoke.ts && bun tests/generated/typescript_node_smoke.ts && bun examples/clients/typescript_repo_agent.ts && bun examples/clients/typescript_zod_opsctl.ts && bun examples/clients/typescript_node_repo_agent.ts",
+    "test:generated:ts:node": "node --experimental-strip-types tests/generated/typescript_smoke.ts && node --experimental-strip-types tests/generated/typescript_zod_smoke.ts && node --experimental-strip-types tests/generated/typescript_node_smoke.ts && node --experimental-strip-types examples/clients/typescript_repo_agent.ts && node --experimental-strip-types examples/clients/typescript_zod_opsctl.ts && node --experimental-strip-types examples/clients/typescript_node_repo_agent.ts",
+    "test:generated:ts": "npm run test:generated:ts:bun && npm run test:generated:ts:node"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^5.9.3",
+    "zod": "^4.4.2"
+  }
+}

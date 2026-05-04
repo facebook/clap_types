@@ -1,0 +1,57 @@
+name: Feature Request
+description: Suggest a new generator feature, backend capability, or reflection improvement.
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement to `clap_types`.
+
+        Please describe the user problem first, then the behavior or API shape
+        you think would solve it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Explain the limitation, friction, or missing capability.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should change?
+      description: Describe the proposed feature or API shape.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this touch?
+      options:
+        - Reflection
+        - Shared model
+        - Rust backend
+        - Python backend
+        - TypeScript backend
+        - Kotlin backend
+        - Docs / examples
+        - Tooling / tests
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples or prior art
+      description: Link to relevant CLI definitions, generated APIs, or comparable tools.
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add any extra context here.
+

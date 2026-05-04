@@ -1,0 +1,67 @@
+name: Bug Report
+description: Report incorrect reflection, generation, or generated builder behavior.
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+
+        Please include enough detail to reproduce the issue against `clap_types`
+        or the generated bindings it produces.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the bug and the behavior you observed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How can we reproduce it?
+      description: Include a minimal `clap` definition, generator invocation, or generated output snippet when possible.
+      placeholder: |
+        1. Define a command with ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: Describe the expected generated API or argv output.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Which backend is affected?
+      options:
+        - Rust
+        - Python
+        - TypeScript
+        - Kotlin
+        - Reflection / shared model
+        - Multiple
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include Rust version, `clap` version, OS, and any relevant runtime versions.
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add links, screenshots, stack traces, or related discussions here.
+
