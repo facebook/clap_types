@@ -4,6 +4,7 @@
 
 mod bindings_cli;
 mod codegen;
+mod flow;
 mod generate;
 mod kotlin;
 mod model;
@@ -16,6 +17,7 @@ pub mod python;
 pub mod typescript;
 
 pub use bindings_cli::{BINDING_COMMAND_NAME, binding_command, generate_binding_from_matches};
+pub use flow::{Flow, FlowOptions, FlowRuntime, FlowValidation};
 pub use generate::{GeneratedFile, Generator, OutputContractGeneration, generate, generate_to};
 pub use kotlin::{Kotlin, KotlinOptions};
 pub use model::{

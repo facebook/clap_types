@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
-use crate::{Kotlin, Python, Rust, TypeScript, generate_to};
+use crate::{Flow, Kotlin, Python, Rust, TypeScript, generate_to};
 
 /// Name of the generated hidden subcommand.
 pub const BINDING_COMMAND_NAME: &str = "generate-binding";
@@ -38,6 +38,32 @@ pub fn binding_command() -> Command {
                     Arg::new("zod_schemas")
                         .long("zod-schemas")
                         .help("Emit Zod schemas and inferred types without builder validation")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    Arg::new("node")
+                        .long("node")
+                        .help("Emit Node child_process helpers")
+                        .action(ArgAction::SetTrue),
+                ),
+        )
+        .subcommand(
+            Command::new("flow")
+                .about("Generate JavaScript bindings annotated with Flow types")
+                .arg(output_path_arg())
+                .arg(module_name_arg())
+                .args(output_contract_args())
+                .arg(
+                    Arg::new("zod")
+                        .long("zod")
+                        .help("Emit Zod schemas and validate builders with Schema.parse")
+                        .action(ArgAction::SetTrue)
+                        .conflicts_with("zod_schemas"),
+                )
+                .arg(
+                    Arg::new("zod_schemas")
+                        .long("zod-schemas")
+                        .help("Emit Zod schemas without builder validation")
                         .action(ArgAction::SetTrue),
                 )
                 .arg(
@@ -103,6 +129,7 @@ pub fn generate_binding_from_matches(
     let bin_name = bin_name.into();
     match matches.subcommand() {
         Some(("typescript", matches)) => generate_typescript(cmd, &bin_name, matches),
+        Some(("flow", matches)) => generate_flow(cmd, &bin_name, matches),
         Some(("python", matches)) => generate_python(cmd, &bin_name, matches),
         Some(("rust", matches)) => generate_rust(cmd, &bin_name, matches),
         Some(("kotlin", matches)) => generate_kotlin(cmd, &bin_name, matches),
@@ -123,6 +150,27 @@ fn generate_typescript(
     matches: &ArgMatches,
 ) -> io::Result<PathBuf> {
     let mut generator = TypeScript::new();
+
+    if let Some(module_name) = matches.get_one::<String>("module_name") {
+        generator = generator.module_name(module_name);
+    }
+    if matches.get_flag("zod") {
+        generator = generator.zod();
+    } else if matches.get_flag("zod_schemas") {
+        generator = generator.zod_schemas();
+    }
+    if matches.get_flag("node") {
+        generator = generator.node();
+    }
+    if wants_output_contracts(matches) {
+        generator = generator.output_contracts();
+    }
+
+    generate_to(generator, cmd, bin_name, output_path(matches))
+}
+
+fn generate_flow(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
+    let mut generator = Flow::new();
 
     if let Some(module_name) = matches.get_one::<String>("module_name") {
         generator = generator.module_name(module_name);

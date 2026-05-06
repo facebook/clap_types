@@ -1,0 +1,17 @@
+[ignore]
+.*/node_modules/.*
+.*/target/generated-flow-runtime/.*
+.*/target/debug/.*
+
+[include]
+tests/generated
+examples/clients
+target/generated/flow
+target/generated/flow-node
+target/generated/flow-zod
+
+[libs]
+tests/generated/flow_lib.js
+
+[options]
+module.system.node.resolve_dirname=node_modules

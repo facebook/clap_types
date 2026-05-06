@@ -6,7 +6,7 @@ rust-version = "1.85"
 description = "Generate type-safe command builders from clap command definitions"
 license = "MIT"
 repository = "https://github.com/facebook/clap_types"
-keywords = ["clap", "cli", "typescript", "bindings"]
+keywords = ["clap", "cli", "typescript", "flow", "bindings"]
 categories = ["command-line-interface", "development-tools"]
 
 [dependencies]

@@ -14,7 +14,7 @@ use std::process::Command as ProcCommand;
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use clap_types::{Python, TypeScript, generate_to};
+use clap_types::{Flow, Python, TypeScript, generate_to};
 
 #[path = "fixtures/echo_args.rs"]
 mod echo_args;
@@ -95,6 +95,28 @@ fn run_fixture(argv: &[String]) -> HashMap<String, String> {
         String::from_utf8_lossy(&output.stderr)
     );
     parse_kv(&String::from_utf8(output.stdout).expect("utf-8 stdout"))
+}
+
+fn local_node_bin(name: &str) -> Option<PathBuf> {
+    let suffix = if cfg!(windows) { ".cmd" } else { "" };
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("node_modules")
+        .join(".bin")
+        .join(format!("{name}{suffix}"));
+    path.is_file().then_some(path)
+}
+
+fn strip_flow_file(strip_flow: &Path, input: &Path, output: &Path) {
+    let stripped = ProcCommand::new(strip_flow)
+        .arg(input)
+        .output()
+        .expect("run flow-remove-types");
+    assert!(
+        stripped.status.success(),
+        "flow-remove-types failed: {}",
+        String::from_utf8_lossy(&stripped.stderr)
+    );
+    fs::write(output, stripped.stdout).expect("write stripped Flow output");
 }
 
 #[test]
@@ -210,6 +232,68 @@ console.log(argv.join("\n"));
 
     let output = ProcCommand::new(&node)
         .arg(dir.join("dist").join("harness.js"))
+        .output()
+        .expect("run node harness");
+    assert!(
+        output.status.success(),
+        "node harness failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let argv = String::from_utf8(output.stdout)
+        .expect("utf-8 harness stdout")
+        .lines()
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+
+    assert_expected_parse(&run_fixture(&argv));
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn flow_roundtrip_drives_clap_via_generated_bindings() {
+    let (Some(node), Some(strip_flow)) = (which("node"), local_node_bin("flow-remove-types"))
+    else {
+        eprintln!("skipping flow roundtrip: node and/or flow-remove-types not available");
+        return;
+    };
+
+    let dir = temp_dir("flow");
+    fs::create_dir_all(&dir).expect("create temp dir");
+
+    let mut cmd = echo_args::cli();
+    generate_to(Flow::new(), &mut cmd, "echo-args", &dir).expect("generate flow bindings");
+
+    let harness = r#"
+// @flow strict
+
+import { buildGreetCommand } from "./echo-args.js";
+
+const argv = buildGreetCommand({
+  workspace: "/tmp/ws",
+  verbose: 2,
+  name: "world",
+  loud: true,
+  repeat: 3,
+  tag: ["a", "b"],
+  mode: "fast",
+  word: ["hello", "again"],
+});
+console.log(argv.join("\n"));
+"#;
+    let harness_path = dir.join("harness.js");
+    fs::write(&harness_path, harness).expect("write harness.js");
+
+    let dist = dir.join("dist");
+    fs::create_dir_all(&dist).expect("create dist");
+    strip_flow_file(
+        &strip_flow,
+        &dir.join("echo-args.js"),
+        &dist.join("echo-args.js"),
+    );
+    strip_flow_file(&strip_flow, &harness_path, &dist.join("harness.js"));
+
+    let output = ProcCommand::new(&node)
+        .arg(dist.join("harness.js"))
         .output()
         .expect("run node harness");
     assert!(

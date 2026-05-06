@@ -5,6 +5,8 @@
   "scripts": {
     "generate:fixtures": "cargo run --example generate_complex_bindings -- target/generated && cargo run --example generate_derive_bindings -- target/generated",
     "check:generated:ts": "tsc --noEmit --project tests/generated/tsconfig.json",
+    "check:generated:flow": "flow check --strip-root",
+    "build:generated:flow": "node scripts/build_generated_flow_runtime.mjs",
     "lint:generated:rust": "bash scripts/lint_generated_rust.sh",
     "test:generated:rust": "bash scripts/test_generated_rust.sh",
     "check:generated:rust": "npm run lint:generated:rust && npm run test:generated:rust",
@@ -13,10 +15,15 @@
     "check:generated:kotlin": "npm run lint:generated:kotlin && npm run test:generated:kotlin",
     "test:generated:ts:bun": "bun tests/generated/typescript_smoke.ts && bun tests/generated/typescript_zod_smoke.ts && bun tests/generated/typescript_node_smoke.ts && bun examples/clients/typescript_repo_agent.ts && bun examples/clients/typescript_zod_opsctl.ts && bun examples/clients/typescript_node_repo_agent.ts",
     "test:generated:ts:node": "node --experimental-strip-types tests/generated/typescript_smoke.ts && node --experimental-strip-types tests/generated/typescript_zod_smoke.ts && node --experimental-strip-types tests/generated/typescript_node_smoke.ts && node --experimental-strip-types examples/clients/typescript_repo_agent.ts && node --experimental-strip-types examples/clients/typescript_zod_opsctl.ts && node --experimental-strip-types examples/clients/typescript_node_repo_agent.ts",
-    "test:generated:ts": "npm run test:generated:ts:bun && npm run test:generated:ts:node"
+    "test:generated:ts": "npm run test:generated:ts:bun && npm run test:generated:ts:node",
+    "test:generated:flow:node": "npm run build:generated:flow && node target/generated-flow-runtime/tests/generated/flow_smoke.js && node target/generated-flow-runtime/tests/generated/flow_zod_smoke.js && node target/generated-flow-runtime/tests/generated/flow_node_smoke.js && node target/generated-flow-runtime/examples/clients/flow_repo_agent.js && node target/generated-flow-runtime/examples/clients/flow_zod_opsctl.js && node target/generated-flow-runtime/examples/clients/flow_node_repo_agent.js",
+    "test:generated:flow:bun": "npm run build:generated:flow && bun target/generated-flow-runtime/tests/generated/flow_smoke.js && bun target/generated-flow-runtime/tests/generated/flow_zod_smoke.js && bun target/generated-flow-runtime/tests/generated/flow_node_smoke.js && bun target/generated-flow-runtime/examples/clients/flow_repo_agent.js && bun target/generated-flow-runtime/examples/clients/flow_zod_opsctl.js && bun target/generated-flow-runtime/examples/clients/flow_node_repo_agent.js",
+    "test:generated:flow": "npm run check:generated:flow && npm run test:generated:flow:node && npm run test:generated:flow:bun"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "flow-bin": "^0.313.0",
+    "flow-remove-types": "^2.313.0",
     "typescript": "^5.9.3",
     "zod": "^4.4.2"
   }

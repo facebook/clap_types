@@ -91,7 +91,7 @@ jobs:
           python examples/clients/python_opsctl_derive.py target/generated
 
   generated-typescript:
-    name: Generated TypeScript
+    name: Generated TypeScript and Flow
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -120,11 +120,20 @@ jobs:
       - name: Type-check generated TypeScript with Node
         run: npm run check:generated:ts
 
+      - name: Type-check generated Flow
+        run: npm run check:generated:flow
+
       - name: Run generated TypeScript smoke tests with Node
         run: npm run test:generated:ts:node
 
+      - name: Run generated Flow smoke tests with Node
+        run: npm run test:generated:flow:node
+
       - name: Run generated TypeScript smoke tests with Bun
         run: npm run test:generated:ts:bun
+
+      - name: Run generated Flow smoke tests with Bun
+        run: npm run test:generated:flow:bun
 
   generated-rust-kotlin:
     name: Generated Rust and Kotlin
