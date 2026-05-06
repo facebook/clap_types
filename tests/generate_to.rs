@@ -6,7 +6,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::{Arg, Command};
 use clap_types::{
-    Kotlin, Python, Rust, TypeScript, binding_command, generate_binding_from_matches, generate_to,
+    Flow, Kotlin, Python, Rust, TypeScript, binding_command, generate_binding_from_matches,
+    generate_to,
 };
 
 #[test]
@@ -21,6 +22,24 @@ fn generate_to_writes_typescript_file() -> Result<(), Box<dyn std::error::Error>
     let typescript = fs::read_to_string(&path)?;
     assert!(typescript.contains("export interface DemoArgs"));
     assert!(typescript.contains("input: string;"));
+
+    fs::remove_dir_all(&dir)?;
+    Ok(())
+}
+
+#[test]
+fn generate_to_writes_flow_file() -> Result<(), Box<dyn std::error::Error>> {
+    let unique = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let dir = std::env::temp_dir().join(format!("clap_types_generate_to_flow_{unique}"));
+
+    let mut cmd = Command::new("demo").arg(Arg::new("input").required(true));
+    let path = generate_to(Flow::new(), &mut cmd, "demo", &dir)?;
+
+    assert_eq!(path.file_name(), Some(OsStr::new("demo.js")));
+    let flow = fs::read_to_string(&path)?;
+    assert!(flow.contains("// @flow strict"));
+    assert!(flow.contains("export type DemoArgs"));
+    assert!(flow.contains("+input: string,"));
 
     fs::remove_dir_all(&dir)?;
     Ok(())
@@ -158,6 +177,50 @@ fn generate_to_writes_node_typescript_file() -> Result<(), Box<dyn std::error::E
 }
 
 #[test]
+fn generate_to_writes_zod_flow_file_with_options() -> Result<(), Box<dyn std::error::Error>> {
+    let unique = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let dir = std::env::temp_dir().join(format!("clap_types_generate_to_flow_zod_{unique}"));
+    fs::create_dir_all(&dir)?;
+
+    let mut cmd = Command::new("demo").arg(Arg::new("mode").long("mode").value_parser(["fast"]));
+    let path = generate_to(
+        Flow::new().module_name("demo_zod").zod(),
+        &mut cmd,
+        "demo",
+        &dir,
+    )?;
+
+    assert_eq!(path.file_name(), Some(OsStr::new("demo-zod.js")));
+    let flow = fs::read_to_string(&path)?;
+    assert!(flow.contains("import { z } from \"zod\";"));
+    assert!(flow.contains("export const DemoArgsSchema"));
+    assert!(flow.contains("const parsed: DemoArgs = DemoArgsSchema.parse(args);"));
+
+    fs::remove_dir_all(&dir)?;
+    Ok(())
+}
+
+#[test]
+fn generate_to_writes_node_flow_file() -> Result<(), Box<dyn std::error::Error>> {
+    let unique = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let dir = std::env::temp_dir().join(format!("clap_types_generate_to_flow_node_{unique}"));
+
+    let mut cmd =
+        Command::new("demo").subcommand(Command::new("run").arg(Arg::new("target").required(true)));
+    let path = generate_to(Flow::new().node(), &mut cmd, "demo", &dir)?;
+
+    assert_eq!(path.file_name(), Some(OsStr::new("demo.js")));
+    let flow = fs::read_to_string(&path)?;
+    assert!(flow.contains("from \"node:child_process\";"));
+    assert!(flow.contains("export function createRunCommand(args: RunArgs"));
+    assert!(flow.contains("export function runRunCommand(args: RunArgs"));
+    assert!(flow.contains("export function spawnRunCommand(args: RunArgs"));
+
+    fs::remove_dir_all(&dir)?;
+    Ok(())
+}
+
+#[test]
 fn embedded_binding_command_generates_typescript_node_zod() -> Result<(), Box<dyn std::error::Error>>
 {
     let unique = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
@@ -182,6 +245,35 @@ fn embedded_binding_command_generates_typescript_node_zod() -> Result<(), Box<dy
     assert!(typescript.contains("import { z } from \"zod\";"));
     assert!(typescript.contains("from \"node:child_process\";"));
     assert!(typescript.contains("export function runRunCommand(args: RunArgs"));
+
+    fs::remove_dir_all(&dir)?;
+    Ok(())
+}
+
+#[test]
+fn embedded_binding_command_generates_flow_node_zod() -> Result<(), Box<dyn std::error::Error>> {
+    let unique = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let dir = std::env::temp_dir().join(format!("clap_types_binding_cli_flow_{unique}"));
+
+    let matches = binding_command().try_get_matches_from([
+        "generate-binding",
+        "flow",
+        "--zod",
+        "--node",
+        "--module-name",
+        "demo-node",
+        "--path",
+        dir.to_str().ok_or("temp path was not valid UTF-8")?,
+    ])?;
+    let mut cmd =
+        Command::new("demo").subcommand(Command::new("run").arg(Arg::new("target").required(true)));
+    let path = generate_binding_from_matches(&mut cmd, "demo", &matches)?;
+
+    assert_eq!(path.file_name(), Some(OsStr::new("demo-node.js")));
+    let flow = fs::read_to_string(&path)?;
+    assert!(flow.contains("import { z } from \"zod\";"));
+    assert!(flow.contains("from \"node:child_process\";"));
+    assert!(flow.contains("export function runRunCommand(args: RunArgs"));
 
     fs::remove_dir_all(&dir)?;
     Ok(())

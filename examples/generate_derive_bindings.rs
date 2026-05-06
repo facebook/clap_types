@@ -7,7 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use clap::{ArgAction, Args, CommandFactory, Parser, Subcommand, ValueEnum, ValueHint};
-use clap_types::{Kotlin, Python, Rust, TypeScript, generate_to};
+use clap_types::{Flow, Kotlin, Python, Rust, TypeScript, generate_to};
 
 fn main() -> std::io::Result<()> {
     let out_dir = env::args_os()
@@ -36,6 +36,9 @@ fn generate_app(
     let typescript_dir = out_dir.join("typescript");
     let typescript_node_dir = out_dir.join("typescript-node");
     let typescript_zod_dir = out_dir.join("typescript-zod");
+    let flow_dir = out_dir.join("flow");
+    let flow_node_dir = out_dir.join("flow-node");
+    let flow_zod_dir = out_dir.join("flow-zod");
     let rust_dir = out_dir.join("rust");
     let kotlin_dir = out_dir.join("kotlin");
     fs::create_dir_all(&python_dir)?;
@@ -43,6 +46,9 @@ fn generate_app(
     fs::create_dir_all(&typescript_dir)?;
     fs::create_dir_all(&typescript_node_dir)?;
     fs::create_dir_all(&typescript_zod_dir)?;
+    fs::create_dir_all(&flow_dir)?;
+    fs::create_dir_all(&flow_node_dir)?;
+    fs::create_dir_all(&flow_zod_dir)?;
     fs::create_dir_all(&rust_dir)?;
     fs::create_dir_all(&kotlin_dir)?;
 
@@ -96,6 +102,25 @@ fn generate_app(
         &mut typescript_zod_cli,
         bin_name,
         &typescript_zod_dir,
+    )?;
+
+    let mut flow_cli = cli.clone();
+    generate_to(Flow::new(), &mut flow_cli, bin_name, &flow_dir)?;
+
+    let mut flow_node_cli = cli.clone();
+    generate_to(
+        Flow::new().module_name(format!("{bin_name}-node")).node(),
+        &mut flow_node_cli,
+        bin_name,
+        &flow_node_dir,
+    )?;
+
+    let mut flow_zod_cli = cli.clone();
+    generate_to(
+        Flow::new().module_name(format!("{bin_name}-zod")).zod(),
+        &mut flow_zod_cli,
+        bin_name,
+        &flow_zod_dir,
     )?;
 
     let mut rust_cli = cli.clone();

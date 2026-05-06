@@ -4,9 +4,9 @@
 
 If your Rust tool is defined with [`clap`](https://crates.io/crates/clap),
 `clap_types` reflects its command tree and generates type-safe clients for
-TypeScript, Python, Rust, and Kotlin/JVM. Those clients know how to build argv,
-optionally invoke the executable, and optionally describe or parse structured output
-contracts.
+TypeScript, Flow-annotated JavaScript, Python, Rust, and Kotlin/JVM. Those clients
+know how to build argv, optionally invoke the executable, and optionally describe or
+parse structured output contracts.
 
 The goal is to make CLIs feel like real programmatic APIs without giving up why CLIs
 are great in the first place: they are easy to install, easy to sandbox, easy to call
@@ -42,6 +42,9 @@ Supported backends:
 - TypeScript + Zod: opt-in strict schemas and runtime validation.
 - TypeScript + Node: opt-in `child_process` command descriptors, `execFile`, and
   `spawn` helpers.
+- Flow: dependency-free JavaScript argv builders with Flow exact object types.
+- Flow + Zod / Node: the same opt-in validation and `child_process` helpers as the
+  TypeScript backend.
 - Python 3.10+: dataclasses, argv builders, single-file modules, package layouts,
   and `subprocess.run` convenience.
 - Rust: dependency-free structs, enums, argv builders, and `std::process` helpers.
@@ -58,7 +61,8 @@ framing helpers with `.output_contracts()` or the hidden command's
 - Generated types for subcommands, globals, required args, enums, counters, booleans,
   repeated options, varargs, paths, numbers, and strings.
 - Optional standard-library invocation helpers for Node, Python, Rust, and Kotlin/JVM.
-- Runtime validation before invocation in opt-in modes such as TypeScript + Zod.
+- Runtime validation before invocation in opt-in modes such as TypeScript + Zod or
+  Flow + Zod.
 - Optional output-contract metadata for JSON, JSON-lines, text, streaming, and
   interactive commands, with automatic parsing where the generated language can do
   that cleanly without extra dependencies.
@@ -66,8 +70,8 @@ framing helpers with `.output_contracts()` or the hidden command's
   back instead of scraping stdout and exit codes by hand.
 - A hidden `generate-binding` command you can embed in your own CLI so the tool can
   generate clients for itself.
-- Generated-code tests in CI across Rust, Python 3.10-3.14, TypeScript on Node and
-  Bun, and Kotlin/JVM.
+- Generated-code tests in CI across Rust, Python 3.10-3.14, TypeScript and Flow on
+  Node and Bun, and Kotlin/JVM.
 
 ## Install
 
@@ -91,7 +95,7 @@ clap_types = { path = "../clap_types" }
 
 ```rust
 use clap::{Arg, ArgAction, Command};
-use clap_types::{generate, Kotlin, Python, Rust, TypeScript};
+use clap_types::{generate, Flow, Kotlin, Python, Rust, TypeScript};
 
 fn build_cli() -> Command {
     Command::new("demo")
@@ -108,6 +112,9 @@ generate(TypeScript::new().zod(), &mut cmd, "demo", &mut std::io::stdout())?;
 
 let mut cmd = build_cli();
 generate(TypeScript::new().node(), &mut cmd, "demo", &mut std::io::stdout())?;
+
+let mut cmd = build_cli();
+generate(Flow::new().zod().node(), &mut cmd, "demo", &mut std::io::stdout())?;
 
 let mut cmd = build_cli();
 generate(
@@ -173,6 +180,8 @@ The hidden command supports the current generators and their main options:
 ```sh
 demo generate-binding typescript --path target/generated/typescript
 demo generate-binding typescript --zod --node --module-name demo-node --path target/generated/typescript-node
+demo generate-binding flow --path target/generated/flow
+demo generate-binding flow --zod --node --module-name demo-node --path target/generated/flow-node
 demo generate-binding python --module-name demo_bindings --namespace Demo --path target/generated/python
 demo generate-binding python --full-module --module-name demo --namespace Demo --path target/generated/python-package
 demo generate-binding rust --module-name demo_bindings --output-contracts --path target/generated/rust
@@ -367,6 +376,24 @@ console.log(result.stdout);
 `spawn...Command` uses `spawn`. Pass `{ program: "/custom/path" }` to override the
 executable while keeping the typed argv builder unchanged.
 
+## Generated Flow
+
+Flow output mirrors the TypeScript backend but emits runnable `.js` modules with
+Flow annotations:
+
+```rust
+use clap_types::Flow;
+
+let generator = Flow::new().module_name("repo-agent");
+let zod_generator = Flow::new().module_name("repo-agent-zod").zod();
+let node_generator = Flow::new().module_name("repo-agent-node").node();
+```
+
+The generated JavaScript uses exact object types, `$ReadOnlyArray` for repeated
+values, optional Zod schemas, and optional Node `child_process` helpers. Runtime
+tests strip Flow annotations with `flow-remove-types` before executing under Node
+or Bun.
+
 ## Generated Python
 
 Python output targets Python 3.10 through 3.14 and uses only the standard library:
@@ -477,14 +504,16 @@ All generators omit output contracts by default. Turn them on when the reflected
 
 ```rust,ignore
 let generator = TypeScript::new().output_contracts();
+let generator = Flow::new().output_contracts();
 let generator = Python::new().output_contracts();
 let generator = Rust::new().output_contracts();
 let generator = Kotlin::new().output_contracts();
 ```
 
 Generated parsers stay dependency-free. They preserve JSON as parsed `unknown` in
-TypeScript, use `json.loads` in Python, and expose framed JSON/JSON-lines strings in
-Rust and Kotlin where the standard library has no JSON parser.
+TypeScript and `mixed` in Flow, use `json.loads` in Python, and expose framed
+JSON/JSON-lines strings in Rust and Kotlin where the standard library has no JSON
+parser.
 
 ## Structured Type Hints
 
@@ -530,6 +559,7 @@ python examples/clients/python_repo_agent.py target/generated
 python examples/clients/python_opsctl_derive.py target/generated
 bun examples/clients/typescript_repo_agent.ts
 bun examples/clients/typescript_zod_opsctl.ts
+npm run test:generated:flow
 ```
 
 See [`docs/examples.md`](docs/examples.md) for the full map.
@@ -551,11 +581,13 @@ Generated-code checks:
 npm ci
 npm run generate:fixtures
 npm run check:generated:ts
+npm run check:generated:flow
 npm run lint:generated:rust
 npm run check:generated:rust
 npm run lint:generated:kotlin
 npm run check:generated:kotlin
 npm run test:generated:ts
+npm run test:generated:flow
 ruff check tests/generated/python_smoke.py tests/generated/python_package_smoke.py examples/clients/*.py target/generated/python target/generated/python-package
 ruff format --check tests/generated/python_smoke.py tests/generated/python_package_smoke.py examples/clients/*.py target/generated/python target/generated/python-package
 black --check tests/generated/python_smoke.py tests/generated/python_package_smoke.py examples/clients/*.py target/generated/python target/generated/python-package
@@ -565,7 +597,7 @@ python tests/generated/python_package_smoke.py target/generated
 ```
 
 CI runs Rust checks, Python generated-code checks on Python 3.10 through 3.14,
-TypeScript checks on Node plus Bun, generated Rust compilation, and generated
+TypeScript and Flow checks on Node plus Bun, generated Rust compilation, and generated
 Kotlin/JVM compilation. Generated Rust is checked with `rustfmt`, `cargo clippy`,
 and `rustc -D warnings`; generated Kotlin is compiled with `-Werror`, `-Wextra`,
 progressive mode, and bytecode validation so compiler deprecations become CI
