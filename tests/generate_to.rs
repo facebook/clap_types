@@ -194,7 +194,7 @@ fn generate_to_writes_zod_flow_file_with_options() -> Result<(), Box<dyn std::er
     let flow = fs::read_to_string(&path)?;
     assert!(flow.contains("import { z } from \"zod\";"));
     assert!(flow.contains("export const DemoArgsSchema"));
-    assert!(flow.contains("const parsed: any = DemoArgsSchema.parse(args);"));
+    assert!(flow.contains("const parsed: DemoArgs = DemoArgsSchema.parse(args);"));
 
     fs::remove_dir_all(&dir)?;
     Ok(())

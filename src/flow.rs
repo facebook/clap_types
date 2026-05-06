@@ -198,6 +198,20 @@ fn render_module(spec: &CliSpec, options: &FlowOptions, output: &mut String) {
             quote_double(&spec.bin_name)
         ));
     }
+    if validation.is_zod() {
+        output.push_str(
+            r#"type ZodSafeParseResult<T> =
+  | {| +success: true, +data: T |}
+  | {| +success: false, +error: mixed |};
+
+type ZodSchema<T> = {|
+  +parse: (input: mixed) => T,
+  +safeParse: (input: mixed) => ZodSafeParseResult<T>,
+|};
+
+"#,
+        );
+    }
     output.push_str("type ArgValue = string | number | boolean;\n");
     output.push_str("type ArgValueInput = ArgValue | $ReadOnlyArray<ArgValue>;\n\n");
     render_helpers(output);
@@ -433,12 +447,12 @@ fn render_command(
     let all_args = combined_args(inherited, command);
     let has_required = all_args.iter().copied().any(is_required);
 
-    if validation.is_zod() {
-        render_zod_schema(&schema_name, &all_args, output);
-        output.push('\n');
-    }
     render_type_alias(&args_name, &all_args, output);
     output.push('\n');
+    if validation.is_zod() {
+        render_zod_schema(&schema_name, &args_name, &all_args, output);
+        output.push('\n');
+    }
 
     if has_required {
         output.push_str(&format!(
@@ -452,7 +466,7 @@ fn render_command(
 
     let source = if validation.validates_builders() {
         output.push_str(&format!(
-            "  const parsed: any = {schema_name}.parse(args);\n"
+            "  const parsed: {args_name} = {schema_name}.parse(args);\n"
         ));
         "parsed"
     } else {
@@ -549,9 +563,9 @@ fn render_node_command_helpers(
     output.push_str("}\n\n");
 }
 
-fn render_zod_schema(schema_name: &str, args: &[&ArgSpec], output: &mut String) {
+fn render_zod_schema(schema_name: &str, args_name: &str, args: &[&ArgSpec], output: &mut String) {
     output.push_str(&format!(
-        "export const {schema_name}: any = z.strictObject({{\n"
+        "export const {schema_name}: ZodSchema<{args_name}> = z.strictObject({{\n"
     ));
 
     for &arg in args {
@@ -903,12 +917,36 @@ mod tests {
         let output = String::from_utf8(output).expect("flow is utf-8");
 
         assert!(output.contains("import { z } from \"zod\";"));
-        assert!(output.contains("export const DemoToolArgsSchema: any = z.strictObject({"));
+        assert!(output.contains("type ZodSchema<T> = {|"));
+        assert!(output.contains("  +safeParse: (input: mixed) => ZodSafeParseResult<T>,\n|};"));
+        assert!(!output.contains("||};"));
+        assert!(output.contains(
+            "export const DemoToolArgsSchema: ZodSchema<DemoToolArgs> = z.strictObject({"
+        ));
         assert!(output.contains("mode: z.enum([\"fast\", \"slow\"]).optional(),"));
         assert!(output.contains("jobs: z.number().int().optional(),"));
         assert!(output.contains("export type DemoToolArgs = {|"));
-        assert!(output.contains("const parsed: any = RunArgsSchema.parse(args);"));
+        assert!(output.contains("const parsed: RunArgs = RunArgsSchema.parse(args);"));
         assert!(output.contains("pushValues(argv, requireValue(\"target\", parsed.target));"));
+    }
+
+    #[test]
+    fn sanitizes_reserved_words_used_as_arg_ids() {
+        let mut cmd = Command::new("demo-tool")
+            .arg(Arg::new("interface").long("interface"))
+            .arg(Arg::new("private").long("private"))
+            .arg(Arg::new("let").long("let"));
+
+        let mut output = Vec::<u8>::new();
+        generate(Flow::new(), &mut cmd, "demo-tool", &mut output).expect("flow generation works");
+        let output = String::from_utf8(output).expect("flow is utf-8");
+
+        assert!(output.contains("+interface_?: string,"));
+        assert!(output.contains("+private_?: string,"));
+        assert!(output.contains("+let_?: string,"));
+        assert!(output.contains("args.interface_"));
+        assert!(output.contains("args.private_"));
+        assert!(output.contains("args.let_"));
     }
 
     #[test]
@@ -933,9 +971,72 @@ mod tests {
         let output = String::from_utf8(output).expect("flow is utf-8");
 
         assert!(output.contains("import { z } from \"zod\";"));
-        assert!(output.contains("export const DemoToolArgsSchema: any = z.strictObject({"));
+        assert!(output.contains(
+            "export const DemoToolArgsSchema: ZodSchema<DemoToolArgs> = z.strictObject({"
+        ));
         assert!(!output.contains(".parse(args)"));
         assert!(output.contains("pushValues(argv, requireValue(\"target\", args.target));"));
+    }
+
+    #[test]
+    fn zod_array_schema_enforces_both_arity_bounds() {
+        let mut cmd = Command::new("demo-tool").arg(
+            Arg::new("pair")
+                .long("pair")
+                .num_args(2)
+                .action(ArgAction::Set),
+        );
+
+        let mut output = Vec::<u8>::new();
+        generate(Flow::new().zod(), &mut cmd, "demo-tool", &mut output)
+            .expect("zod flow generation works");
+        let output = String::from_utf8(output).expect("flow is utf-8");
+
+        assert!(
+            output.contains("pair: z.array(z.string()).min(2).max(2).optional(),"),
+            "expected min(2).max(2) on fixed-arity array, got:\n{output}"
+        );
+    }
+
+    #[test]
+    fn array_types_render_union_scalars() {
+        let mut cmd = Command::new("demo-tool")
+            .arg(
+                Arg::new("range")
+                    .long("range")
+                    .num_args(2)
+                    .value_parser(value_parser!(u64))
+                    .action(ArgAction::Append),
+            )
+            .arg(
+                Arg::new("kind")
+                    .long("kind")
+                    .value_parser(["fast", "slow"])
+                    .action(ArgAction::Append),
+            )
+            .arg(
+                Arg::new("ids")
+                    .long("ids")
+                    .value_parser(value_parser!(u64))
+                    .action(ArgAction::Append),
+            );
+
+        let mut output = Vec::<u8>::new();
+        generate(Flow::new(), &mut cmd, "demo-tool", &mut output).expect("flow generation works");
+        let output = String::from_utf8(output).expect("flow is utf-8");
+
+        assert!(
+            output.contains("+range?: $ReadOnlyArray<$ReadOnlyArray<string | number>>,"),
+            "expected grouped array of `string | number`, got:\n{output}"
+        );
+        assert!(
+            output.contains("+kind?: $ReadOnlyArray<\"fast\" | \"slow\">,"),
+            "expected flat array of enum literals, got:\n{output}"
+        );
+        assert!(
+            output.contains("+ids?: $ReadOnlyArray<string | number>,"),
+            "expected flat array of `string | number`, got:\n{output}"
+        );
     }
 
     #[test]
@@ -959,6 +1060,45 @@ mod tests {
             output.contains("pushGroupedRepeatedOption(argv, \"--pair\", args.pair);"),
             "expected pushGroupedRepeatedOption dispatch, got:\n{output}"
         );
+    }
+
+    #[test]
+    fn variadic_positionals_emit_required_arrays_in_order() {
+        let mut cmd = Command::new("demo-tool").subcommand(
+            Command::new("copy")
+                .arg(Arg::new("source").required(true))
+                .arg(
+                    Arg::new("mode")
+                        .long("mode")
+                        .value_parser(["fast", "safe"])
+                        .action(ArgAction::Set),
+                )
+                .arg(Arg::new("paths").num_args(1..).required(true)),
+        );
+
+        let mut output = Vec::<u8>::new();
+        generate(Flow::new(), &mut cmd, "demo-tool", &mut output).expect("flow generation works");
+        let output = String::from_utf8(output).expect("flow is utf-8");
+
+        assert!(
+            output.contains("+paths: $ReadOnlyArray<string>,"),
+            "expected variadic positional array type, got:\n{output}"
+        );
+        assert!(
+            output.contains("pushValues(argv, requireValue(\"paths\", args.paths));"),
+            "expected variadic positional builder, got:\n{output}"
+        );
+        let source_index = output
+            .find("pushValues(argv, requireValue(\"source\", args.source));")
+            .expect("source positional builder");
+        let mode_index = output
+            .find("if (args.mode !== undefined)")
+            .expect("mode option builder");
+        let paths_index = output
+            .find("pushValues(argv, requireValue(\"paths\", args.paths));")
+            .expect("variadic positional builder");
+        assert!(source_index < mode_index);
+        assert!(mode_index < paths_index);
     }
 
     #[test]
@@ -999,6 +1139,52 @@ mod tests {
         let message = err.to_string();
         assert!(message.contains("IndexFoo"));
         assert!(message.contains("index-foo") && message.contains("index, foo"));
+    }
+
+    #[test]
+    fn wide_integer_emits_string_or_number_to_preserve_precision() {
+        let mut cmd = Command::new("demo-tool")
+            .arg(
+                Arg::new("epoch_ns")
+                    .long("epoch-ns")
+                    .value_parser(value_parser!(u64))
+                    .action(ArgAction::Set),
+            )
+            .arg(
+                Arg::new("threads")
+                    .long("threads")
+                    .value_parser(value_parser!(u32))
+                    .action(ArgAction::Set),
+            );
+
+        let mut output = Vec::<u8>::new();
+        generate(Flow::new(), &mut cmd, "demo-tool", &mut output).expect("flow generation works");
+        let output = String::from_utf8(output).expect("flow is utf-8");
+
+        assert!(
+            output.contains("+epochNs?: string | number,"),
+            "expected u64 to render as `string | number`, got:\n{output}"
+        );
+        assert!(
+            output.contains("+threads?: number,"),
+            "expected u32 to stay `number`, got:\n{output}"
+        );
+    }
+
+    #[test]
+    fn zod_array_schema_skips_max_for_repeated_options() {
+        let mut cmd =
+            Command::new("demo-tool").arg(Arg::new("tag").long("tag").action(ArgAction::Append));
+
+        let mut output = Vec::<u8>::new();
+        generate(Flow::new().zod(), &mut cmd, "demo-tool", &mut output)
+            .expect("zod flow generation works");
+        let output = String::from_utf8(output).expect("flow is utf-8");
+
+        assert!(
+            !output.contains(".max("),
+            "expected no .max() on repeated option, got:\n{output}"
+        );
     }
 
     #[test]
