@@ -221,13 +221,13 @@ fn render_helpers(output: &mut String) {
 
 function pushValues(argv: Array<string>, value: ArgValueInput): void {
   if (Array.isArray(value)) {
-    for (const item of (value as any)) {
+    for (const item of value) {
       pushOne(argv, item);
     }
     return;
   }
 
-  pushOne(argv, (value as any));
+  pushOne(argv, value);
 }
 
 function pushOption(argv: Array<string>, option: string, value: ArgValueInput): void {
@@ -237,13 +237,13 @@ function pushOption(argv: Array<string>, option: string, value: ArgValueInput): 
 
 function pushRepeatedOption(argv: Array<string>, option: string, value: ArgValueInput): void {
   if (Array.isArray(value)) {
-    for (const item of (value as any)) {
+    for (const item of value) {
       pushOption(argv, option, item);
     }
     return;
   }
 
-  pushOption(argv, option, (value as any));
+  pushOption(argv, option, value);
 }
 
 function pushGroupedRepeatedOption(
