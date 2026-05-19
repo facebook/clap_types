@@ -189,76 +189,21 @@ pub fn generate_binding_from_matches_with_outputs(
     let opts = reflect_opts(sub_m);
     let mut spec = reflect_command_with_options(cmd.clone(), bin_name.to_owned(), opts);
     spec.outputs = outputs;
-
     let out_dir = output_path(sub_m);
 
     match gen_name {
-        "typescript" => {
-            let mut generator = TypeScript::new();
-            if let Some(module_name) = sub_m.get_one::<String>("module_name") {
-                generator = generator.module_name(module_name);
-            }
-            if sub_m.get_flag("zod") {
-                generator = generator.zod();
-            } else if sub_m.get_flag("zod_schemas") {
-                generator = generator.zod_schemas();
-            }
-            if sub_m.get_flag("node") {
-                generator = generator.node();
-            }
-            generator = generator.output_contracts();
-            write_spec(&generator, &spec, &out_dir)
-        }
-        "flow" => {
-            let mut generator = Flow::new();
-            if let Some(module_name) = sub_m.get_one::<String>("module_name") {
-                generator = generator.module_name(module_name);
-            }
-            if sub_m.get_flag("zod") {
-                generator = generator.zod();
-            } else if sub_m.get_flag("zod_schemas") {
-                generator = generator.zod_schemas();
-            }
-            if sub_m.get_flag("node") {
-                generator = generator.node();
-            }
-            generator = generator.output_contracts();
-            write_spec(&generator, &spec, &out_dir)
-        }
+        "typescript" => write_spec(&build_typescript(sub_m, true), &spec, &out_dir),
+        "flow" => write_spec(&build_flow(sub_m, true), &spec, &out_dir),
         "python" => {
-            let mut generator = Python::new();
-            if let Some(module_name) = sub_m.get_one::<String>("module_name") {
-                generator = generator.module_name(module_name);
-            }
-            if let Some(namespace) = sub_m.get_one::<String>("namespace") {
-                generator = generator.namespace(namespace);
-            }
-            generator = generator.output_contracts();
+            let generator = build_python(sub_m, true);
             if sub_m.get_flag("package") {
                 write_spec(&generator.package(), &spec, &out_dir)
             } else {
                 write_spec(&generator, &spec, &out_dir)
             }
         }
-        "rust" => {
-            let mut generator = Rust::new();
-            if let Some(module_name) = sub_m.get_one::<String>("module_name") {
-                generator = generator.module_name(module_name);
-            }
-            generator = generator.output_contracts();
-            write_spec(&generator, &spec, &out_dir)
-        }
-        "kotlin" => {
-            let mut generator = Kotlin::new();
-            if let Some(module_name) = sub_m.get_one::<String>("module_name") {
-                generator = generator.module_name(module_name);
-            }
-            if let Some(package_name) = sub_m.get_one::<String>("package_name") {
-                generator = generator.package_name(package_name);
-            }
-            generator = generator.output_contracts();
-            write_spec(&generator, &spec, &out_dir)
-        }
+        "rust" => write_spec(&build_rust(sub_m, true), &spec, &out_dir),
+        "kotlin" => write_spec(&build_kotlin(sub_m, true), &spec, &out_dir),
         name => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("unsupported binding generator `{name}`"),
@@ -271,25 +216,8 @@ fn generate_typescript(
     bin_name: &str,
     matches: &ArgMatches,
 ) -> io::Result<PathBuf> {
-    let mut generator = TypeScript::new();
-
-    if let Some(module_name) = matches.get_one::<String>("module_name") {
-        generator = generator.module_name(module_name);
-    }
-    if matches.get_flag("zod") {
-        generator = generator.zod();
-    } else if matches.get_flag("zod_schemas") {
-        generator = generator.zod_schemas();
-    }
-    if matches.get_flag("node") {
-        generator = generator.node();
-    }
-    if wants_output_contracts(matches) {
-        generator = generator.output_contracts();
-    }
-
     generate_to_with_options(
-        generator,
+        build_typescript(matches, wants_output_contracts(matches)),
         cmd,
         bin_name,
         output_path(matches),
@@ -298,25 +226,8 @@ fn generate_typescript(
 }
 
 fn generate_flow(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
-    let mut generator = Flow::new();
-
-    if let Some(module_name) = matches.get_one::<String>("module_name") {
-        generator = generator.module_name(module_name);
-    }
-    if matches.get_flag("zod") {
-        generator = generator.zod();
-    } else if matches.get_flag("zod_schemas") {
-        generator = generator.zod_schemas();
-    }
-    if matches.get_flag("node") {
-        generator = generator.node();
-    }
-    if wants_output_contracts(matches) {
-        generator = generator.output_contracts();
-    }
-
     generate_to_with_options(
-        generator,
+        build_flow(matches, wants_output_contracts(matches)),
         cmd,
         bin_name,
         output_path(matches),
@@ -325,18 +236,7 @@ fn generate_flow(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::Res
 }
 
 fn generate_python(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
-    let mut generator = Python::new();
-
-    if let Some(module_name) = matches.get_one::<String>("module_name") {
-        generator = generator.module_name(module_name);
-    }
-    if let Some(namespace) = matches.get_one::<String>("namespace") {
-        generator = generator.namespace(namespace);
-    }
-    if wants_output_contracts(matches) {
-        generator = generator.output_contracts();
-    }
-
+    let generator = build_python(matches, wants_output_contracts(matches));
     let out_dir = output_path(matches);
     let opts = reflect_opts(matches);
     if matches.get_flag("package") {
@@ -347,17 +247,8 @@ fn generate_python(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::R
 }
 
 fn generate_rust(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
-    let mut generator = Rust::new();
-
-    if let Some(module_name) = matches.get_one::<String>("module_name") {
-        generator = generator.module_name(module_name);
-    }
-    if wants_output_contracts(matches) {
-        generator = generator.output_contracts();
-    }
-
     generate_to_with_options(
-        generator,
+        build_rust(matches, wants_output_contracts(matches)),
         cmd,
         bin_name,
         output_path(matches),
@@ -366,25 +257,95 @@ fn generate_rust(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::Res
 }
 
 fn generate_kotlin(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
-    let mut generator = Kotlin::new();
-
-    if let Some(module_name) = matches.get_one::<String>("module_name") {
-        generator = generator.module_name(module_name);
-    }
-    if let Some(package_name) = matches.get_one::<String>("package_name") {
-        generator = generator.package_name(package_name);
-    }
-    if wants_output_contracts(matches) {
-        generator = generator.output_contracts();
-    }
-
     generate_to_with_options(
-        generator,
+        build_kotlin(matches, wants_output_contracts(matches)),
         cmd,
         bin_name,
         output_path(matches),
         reflect_opts(matches),
     )
+}
+
+// Per-language generator builders shared between the two top-level
+// `generate_binding_from_matches*` entry points. The `output_contracts`
+// argument lets the `_with_outputs` variant force-enable contracts when it
+// has explicit outputs to inject.
+
+fn build_typescript(sub_m: &ArgMatches, output_contracts: bool) -> TypeScript {
+    let mut g = TypeScript::new();
+    if let Some(module_name) = sub_m.get_one::<String>("module_name") {
+        g = g.module_name(module_name);
+    }
+    if sub_m.get_flag("zod") {
+        g = g.zod();
+    } else if sub_m.get_flag("zod_schemas") {
+        g = g.zod_schemas();
+    }
+    if sub_m.get_flag("node") {
+        g = g.node();
+    }
+    if output_contracts {
+        g = g.output_contracts();
+    }
+    g
+}
+
+fn build_flow(sub_m: &ArgMatches, output_contracts: bool) -> Flow {
+    let mut g = Flow::new();
+    if let Some(module_name) = sub_m.get_one::<String>("module_name") {
+        g = g.module_name(module_name);
+    }
+    if sub_m.get_flag("zod") {
+        g = g.zod();
+    } else if sub_m.get_flag("zod_schemas") {
+        g = g.zod_schemas();
+    }
+    if sub_m.get_flag("node") {
+        g = g.node();
+    }
+    if output_contracts {
+        g = g.output_contracts();
+    }
+    g
+}
+
+fn build_python(sub_m: &ArgMatches, output_contracts: bool) -> Python {
+    let mut g = Python::new();
+    if let Some(module_name) = sub_m.get_one::<String>("module_name") {
+        g = g.module_name(module_name);
+    }
+    if let Some(namespace) = sub_m.get_one::<String>("namespace") {
+        g = g.namespace(namespace);
+    }
+    if output_contracts {
+        g = g.output_contracts();
+    }
+    g
+}
+
+fn build_rust(sub_m: &ArgMatches, output_contracts: bool) -> Rust {
+    let mut g = Rust::new();
+    if let Some(module_name) = sub_m.get_one::<String>("module_name") {
+        g = g.module_name(module_name);
+    }
+    if output_contracts {
+        g = g.output_contracts();
+    }
+    g
+}
+
+fn build_kotlin(sub_m: &ArgMatches, output_contracts: bool) -> Kotlin {
+    let mut g = Kotlin::new();
+    if let Some(module_name) = sub_m.get_one::<String>("module_name") {
+        g = g.module_name(module_name);
+    }
+    if let Some(package_name) = sub_m.get_one::<String>("package_name") {
+        g = g.package_name(package_name);
+    }
+    if output_contracts {
+        g = g.output_contracts();
+    }
+    g
 }
 
 fn output_path(matches: &ArgMatches) -> PathBuf {
