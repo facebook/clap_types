@@ -1161,13 +1161,8 @@ mod tests {
             .subcommand(Command::new("run").arg(Arg::new("target").required(true)));
 
         let mut output = Vec::<u8>::new();
-        generate(
-            Flow::new().zod_schemas(),
-            &cmd,
-            "demo-tool",
-            &mut output,
-        )
-        .expect("zod schema-only flow generation works");
+        generate(Flow::new().zod_schemas(), &cmd, "demo-tool", &mut output)
+            .expect("zod schema-only flow generation works");
         let output = String::from_utf8(output).expect("flow is utf-8");
 
         assert!(output.contains("import { z } from \"zod\";"));

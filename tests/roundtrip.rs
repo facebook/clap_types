@@ -194,8 +194,7 @@ fn typescript_roundtrip_drives_clap_via_generated_bindings() {
     fs::create_dir_all(&dir).expect("create temp dir");
 
     let cmd = echo_args::cli();
-    generate_to(TypeScript::new(), &cmd, "echo-args", &dir)
-        .expect("generate typescript bindings");
+    generate_to(TypeScript::new(), &cmd, "echo-args", &dir).expect("generate typescript bindings");
 
     // Generator names the file `echo-args.ts` (kebab-cased from bin_name).
     // node16 module resolution requires explicit `.js` extension on imports;

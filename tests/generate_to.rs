@@ -330,12 +330,7 @@ fn generate_to_writes_rust_file() -> Result<(), Box<dyn std::error::Error>> {
 
     let cmd =
         Command::new("demo").subcommand(Command::new("run").arg(Arg::new("target").required(true)));
-    let path = generate_to(
-        Rust::new().module_name("demo_bindings"),
-        &cmd,
-        "demo",
-        &dir,
-    )?;
+    let path = generate_to(Rust::new().module_name("demo_bindings"), &cmd, "demo", &dir)?;
 
     assert_eq!(path.file_name(), Some(OsStr::new("demo_bindings.rs")));
     let rust = fs::read_to_string(&path)?;

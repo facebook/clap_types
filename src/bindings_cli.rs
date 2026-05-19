@@ -211,11 +211,7 @@ pub fn generate_binding_from_matches_with_outputs(
     }
 }
 
-fn generate_typescript(
-    cmd: &Command,
-    bin_name: &str,
-    matches: &ArgMatches,
-) -> io::Result<PathBuf> {
+fn generate_typescript(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
     generate_to_with_options(
         build_typescript(matches, wants_output_contracts(matches)),
         cmd,
@@ -413,11 +409,7 @@ fn wants_output_contracts(matches: &ArgMatches) -> bool {
     matches.get_flag("output_contracts")
 }
 
-fn write_spec(
-    generator: &impl Generator,
-    spec: &CliSpec,
-    out_dir: &Path,
-) -> io::Result<PathBuf> {
+fn write_spec(generator: &impl Generator, spec: &CliSpec, out_dir: &Path) -> io::Result<PathBuf> {
     use std::io::Write;
 
     let files = generator.generate_files(spec)?;

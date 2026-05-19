@@ -697,8 +697,7 @@ mod tests {
             );
 
         let mut output = Vec::<u8>::new();
-        generate(Kotlin::new(), &cmd, "demo-tool", &mut output)
-            .expect("kotlin generation works");
+        generate(Kotlin::new(), &cmd, "demo-tool", &mut output).expect("kotlin generation works");
         let output = String::from_utf8(output).expect("kotlin is utf-8");
 
         assert!(output.contains("const val PROGRAM: String = \"demo-tool\""));
@@ -758,8 +757,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(Kotlin::new(), &cmd, "demo-tool", &mut output)
-            .expect("kotlin generation works");
+        generate(Kotlin::new(), &cmd, "demo-tool", &mut output).expect("kotlin generation works");
         let output = String::from_utf8(output).expect("kotlin is utf-8");
 
         assert!(

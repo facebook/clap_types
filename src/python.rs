@@ -1178,8 +1178,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(Python::new(), &cmd, "demo-tool", &mut output)
-            .expect("python generation works");
+        generate(Python::new(), &cmd, "demo-tool", &mut output).expect("python generation works");
         let output = String::from_utf8(output).expect("python is utf-8");
 
         assert!(
@@ -1209,8 +1208,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(Python::new(), &cmd, "demo-tool", &mut output)
-            .expect("python generation works");
+        generate(Python::new(), &cmd, "demo-tool", &mut output).expect("python generation works");
         let output = String::from_utf8(output).expect("python is utf-8");
 
         assert!(
