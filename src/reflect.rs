@@ -1,5 +1,10 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
+//! Reflect a `clap::Command` into the language-neutral [`CliSpec`](crate::CliSpec)
+//! IR consumed by the language backends. [`reflect_command`] is the default
+//! entry point; [`reflect_command_with_options`] lets callers opt into
+//! including hidden subcommands and arguments.
+
 use std::any::TypeId;
 use std::ffi::OsString;
 use std::path::PathBuf;

@@ -69,12 +69,12 @@ fn generate_app(
     fs::create_dir_all(&rust_dir)?;
     fs::create_dir_all(&kotlin_dir)?;
 
-    let mut python_cli = cli.clone();
+    let python_cli = cli.clone();
     generate_to(
         Python::new()
             .module_name(python_module)
             .namespace(python_namespace),
-        &mut python_cli,
+        &python_cli,
         bin_name,
         &python_dir,
     )?;
@@ -82,78 +82,78 @@ fn generate_app(
     let python_package = python_module
         .strip_suffix("_bindings")
         .unwrap_or(python_module);
-    let mut python_package_cli = cli.clone();
+    let python_package_cli = cli.clone();
     generate_to(
         Python::new()
             .module_name(python_package)
             .namespace(python_namespace)
             .package(),
-        &mut python_package_cli,
+        &python_package_cli,
         bin_name,
         &python_package_dir,
     )?;
 
-    let mut typescript_cli = cli.clone();
+    let typescript_cli = cli.clone();
     generate_to(
         TypeScript::new(),
-        &mut typescript_cli,
+        &typescript_cli,
         bin_name,
         &typescript_dir,
     )?;
 
-    let mut typescript_node_cli = cli.clone();
+    let typescript_node_cli = cli.clone();
     generate_to(
         TypeScript::new()
             .module_name(format!("{bin_name}-node"))
             .node(),
-        &mut typescript_node_cli,
+        &typescript_node_cli,
         bin_name,
         &typescript_node_dir,
     )?;
 
-    let mut typescript_zod_cli = cli.clone();
+    let typescript_zod_cli = cli.clone();
     generate_to(
         TypeScript::new()
             .module_name(format!("{bin_name}-zod"))
             .zod(),
-        &mut typescript_zod_cli,
+        &typescript_zod_cli,
         bin_name,
         &typescript_zod_dir,
     )?;
 
-    let mut flow_cli = cli.clone();
-    generate_to(Flow::new(), &mut flow_cli, bin_name, &flow_dir)?;
+    let flow_cli = cli.clone();
+    generate_to(Flow::new(), &flow_cli, bin_name, &flow_dir)?;
 
-    let mut flow_node_cli = cli.clone();
+    let flow_node_cli = cli.clone();
     generate_to(
         Flow::new().module_name(format!("{bin_name}-node")).node(),
-        &mut flow_node_cli,
+        &flow_node_cli,
         bin_name,
         &flow_node_dir,
     )?;
 
-    let mut flow_zod_cli = cli.clone();
+    let flow_zod_cli = cli.clone();
     generate_to(
         Flow::new().module_name(format!("{bin_name}-zod")).zod(),
-        &mut flow_zod_cli,
+        &flow_zod_cli,
         bin_name,
         &flow_zod_dir,
     )?;
 
-    let mut rust_cli = cli.clone();
+    let rust_cli = cli.clone();
     generate_to(
         Rust::new().module_name(python_module).output_contracts(),
-        &mut rust_cli,
+        &rust_cli,
         bin_name,
         &rust_dir,
     )?;
 
-    let mut kotlin_cli = cli;
+    let kotlin_cli = cli;
     generate_to(
         Kotlin::new()
             .module_name(format!("{bin_name}-bindings"))
             .output_contracts(),
-        &mut kotlin_cli,
+        &kotlin_cli,
         bin_name,
         &kotlin_dir,
     )?;

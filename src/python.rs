@@ -1,5 +1,14 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
+//! Python 3.10+ code generator: emits dataclasses, argv builders, and optional
+//! `subprocess` helpers. Supports both single-file modules and full package
+//! layouts via `Python::package()`.
+//!
+//! `OutputEncoding::Json` causes the generated `parse_output` to deserialize
+//! stdout via the standard library's `json.loads`. The Rust and Kotlin
+//! backends leave the payload as a raw string instead, since those ecosystems
+//! require the caller to choose a deserialization library and target type.
+
 use std::collections::BTreeSet;
 use std::io::Write;
 use std::io::{self};
@@ -1104,7 +1113,7 @@ mod tests {
 
     #[test]
     fn generates_typed_python_builders() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .about("Demo tool")
             .arg(
                 Arg::new("config")
@@ -1138,7 +1147,7 @@ mod tests {
             Python::new()
                 .module_name("demo_bindings")
                 .namespace("DemoTool"),
-            &mut cmd,
+            &cmd,
             "demo-tool",
             &mut output,
         )
@@ -1161,7 +1170,7 @@ mod tests {
         // generated type must allow nested sequences and the builder must
         // dispatch to _push_grouped_repeated_option so each group is emitted
         // as a separate `--pair v1 v2` occurrence.
-        let mut cmd = Command::new("demo-tool").arg(
+        let cmd = Command::new("demo-tool").arg(
             Arg::new("pair")
                 .long("pair")
                 .num_args(2)
@@ -1169,7 +1178,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(Python::new(), &mut cmd, "demo-tool", &mut output)
+        generate(Python::new(), &cmd, "demo-tool", &mut output)
             .expect("python generation works");
         let output = String::from_utf8(output).expect("python is utf-8");
 
@@ -1187,7 +1196,7 @@ mod tests {
 
     #[test]
     fn variadic_positionals_emit_required_sequences_in_order() {
-        let mut cmd = Command::new("demo-tool").subcommand(
+        let cmd = Command::new("demo-tool").subcommand(
             Command::new("copy")
                 .arg(Arg::new("source").required(true))
                 .arg(
@@ -1200,7 +1209,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(Python::new(), &mut cmd, "demo-tool", &mut output)
+        generate(Python::new(), &cmd, "demo-tool", &mut output)
             .expect("python generation works");
         let output = String::from_utf8(output).expect("python is utf-8");
 
@@ -1227,11 +1236,11 @@ mod tests {
 
     #[test]
     fn sanitizes_python_reserved_namespace() {
-        let mut cmd = Command::new("demo-tool").arg(Arg::new("input").required(true));
+        let cmd = Command::new("demo-tool").arg(Arg::new("input").required(true));
         let mut output = Vec::<u8>::new();
         generate(
             Python::new().namespace("None"),
-            &mut cmd,
+            &cmd,
             "demo-tool",
             &mut output,
         )

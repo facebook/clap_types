@@ -1,5 +1,10 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
+//! Top-level entry points for emitting bindings: the [`Generator`] trait
+//! implemented by every language backend, and the [`generate`], [`generate_to`],
+//! and [`generate_to_with_options`] convenience functions that pair a generator
+//! with [`reflect`](crate::reflect)-produced [`CliSpec`].
+
 use std::fs::File;
 use std::fs::{self};
 use std::io::Write;
@@ -91,7 +96,7 @@ impl GeneratedFile {
 /// Generate bindings for `cmd` into `buf`.
 pub fn generate<G, S>(
     generator: G,
-    cmd: &mut Command,
+    cmd: &Command,
     bin_name: S,
     buf: &mut dyn Write,
 ) -> io::Result<()>
@@ -106,7 +111,7 @@ where
 /// Generate bindings for `cmd` under `out_dir`.
 pub fn generate_to<G, S, P>(
     generator: G,
-    cmd: &mut Command,
+    cmd: &Command,
     bin_name: S,
     out_dir: P,
 ) -> io::Result<PathBuf>
@@ -124,7 +129,7 @@ where
 /// emitted client.
 pub fn generate_to_with_options<G, S, P>(
     generator: G,
-    cmd: &mut Command,
+    cmd: &Command,
     bin_name: S,
     out_dir: P,
     opts: ReflectOptions,

@@ -1,5 +1,15 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
+//! Flow-annotated JavaScript code generator: emits argv builders, optional
+//! Zod schemas, and optional Node `child_process` helpers, with the same
+//! shape as the TypeScript backend.
+//!
+//! `OutputEncoding::Json` causes the generated `parseOutput` helper to
+//! deserialize stdout via the runtime's built-in `JSON.parse`, mirroring the
+//! TypeScript and Python generators. The Rust and Kotlin generators leave the
+//! payload as a raw string instead, since those ecosystems require the caller
+//! to choose a deserialization library and target type.
+
 use std::io::Write;
 use std::io::{self};
 
@@ -306,21 +316,23 @@ function requireValue<T>(name: string, value: T | void): T {
 
 fn render_output_types(spec: &CliSpec, output: &mut String) {
     for contract in &spec.outputs {
-        if let Some(crate::model::OutputSchema::JsonSchema(ref json_str)) = contract.schema {
-            if let Ok(schema) = serde_json::from_str::<serde_json::Value>(json_str) {
-                let defs = schema
-                    .get("$defs")
-                    .or_else(|| schema.get("definitions"))
-                    .cloned()
-                    .unwrap_or(serde_json::Value::Object(Default::default()));
+        let Some(crate::model::OutputSchema::JsonSchema(json_str)) = &contract.schema else {
+            continue;
+        };
+        let Ok(schema) = serde_json::from_str::<serde_json::Value>(json_str) else {
+            continue;
+        };
+        let defs = schema
+            .get("$defs")
+            .or_else(|| schema.get("definitions"))
+            .cloned()
+            .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::new()));
 
-                render_type_from_schema(&contract.type_name, &schema, &defs, output);
+        render_type_from_schema(&contract.type_name, &schema, &defs, output);
 
-                if let Some(defs_obj) = defs.as_object() {
-                    for (def_name, def_schema) in defs_obj {
-                        render_type_from_schema(def_name, def_schema, &defs, output);
-                    }
-                }
+        if let Some(defs_obj) = defs.as_object() {
+            for (def_name, def_schema) in defs_obj {
+                render_type_from_schema(def_name, def_schema, &defs, output);
             }
         }
     }
@@ -1040,7 +1052,7 @@ mod tests {
 
     #[test]
     fn generates_flow_command_builders() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(
                 Arg::new("config")
                     .long("config")
@@ -1068,7 +1080,7 @@ mod tests {
             .subcommand(Command::new("run").arg(Arg::new("target").required(true)));
 
         let mut output = Vec::<u8>::new();
-        generate(Flow::new(), &mut cmd, "demo-tool", &mut output).expect("flow generation works");
+        generate(Flow::new(), &cmd, "demo-tool", &mut output).expect("flow generation works");
         let output = String::from_utf8(output).expect("flow is utf-8");
 
         assert!(output.contains("@flow strict"));
@@ -1084,7 +1096,7 @@ mod tests {
 
     #[test]
     fn generates_zod_schemas_and_validating_builders() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(
                 Arg::new("mode")
                     .long("mode")
@@ -1100,7 +1112,7 @@ mod tests {
             .subcommand(Command::new("run").arg(Arg::new("target").required(true)));
 
         let mut output = Vec::<u8>::new();
-        generate(Flow::new().zod(), &mut cmd, "demo-tool", &mut output)
+        generate(Flow::new().zod(), &cmd, "demo-tool", &mut output)
             .expect("zod flow generation works");
         let output = String::from_utf8(output).expect("flow is utf-8");
 
@@ -1120,13 +1132,13 @@ mod tests {
 
     #[test]
     fn sanitizes_reserved_words_used_as_arg_ids() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(Arg::new("interface").long("interface"))
             .arg(Arg::new("private").long("private"))
             .arg(Arg::new("let").long("let"));
 
         let mut output = Vec::<u8>::new();
-        generate(Flow::new(), &mut cmd, "demo-tool", &mut output).expect("flow generation works");
+        generate(Flow::new(), &cmd, "demo-tool", &mut output).expect("flow generation works");
         let output = String::from_utf8(output).expect("flow is utf-8");
 
         assert!(output.contains("+interface_?: string,"));
@@ -1139,7 +1151,7 @@ mod tests {
 
     #[test]
     fn generates_zod_schemas_without_validating_builders() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(
                 Arg::new("mode")
                     .long("mode")
@@ -1151,7 +1163,7 @@ mod tests {
         let mut output = Vec::<u8>::new();
         generate(
             Flow::new().zod_schemas(),
-            &mut cmd,
+            &cmd,
             "demo-tool",
             &mut output,
         )
@@ -1168,7 +1180,7 @@ mod tests {
 
     #[test]
     fn zod_array_schema_enforces_both_arity_bounds() {
-        let mut cmd = Command::new("demo-tool").arg(
+        let cmd = Command::new("demo-tool").arg(
             Arg::new("pair")
                 .long("pair")
                 .num_args(2)
@@ -1176,7 +1188,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(Flow::new().zod(), &mut cmd, "demo-tool", &mut output)
+        generate(Flow::new().zod(), &cmd, "demo-tool", &mut output)
             .expect("zod flow generation works");
         let output = String::from_utf8(output).expect("flow is utf-8");
 
@@ -1188,7 +1200,7 @@ mod tests {
 
     #[test]
     fn array_types_render_union_scalars() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(
                 Arg::new("range")
                     .long("range")
@@ -1210,7 +1222,7 @@ mod tests {
             );
 
         let mut output = Vec::<u8>::new();
-        generate(Flow::new(), &mut cmd, "demo-tool", &mut output).expect("flow generation works");
+        generate(Flow::new(), &cmd, "demo-tool", &mut output).expect("flow generation works");
         let output = String::from_utf8(output).expect("flow is utf-8");
 
         assert!(
@@ -1229,7 +1241,7 @@ mod tests {
 
     #[test]
     fn grouped_repeated_option_emits_nested_array_and_dispatches_correctly() {
-        let mut cmd = Command::new("demo-tool").arg(
+        let cmd = Command::new("demo-tool").arg(
             Arg::new("pair")
                 .long("pair")
                 .num_args(2)
@@ -1237,7 +1249,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(Flow::new(), &mut cmd, "demo-tool", &mut output).expect("flow generation works");
+        generate(Flow::new(), &cmd, "demo-tool", &mut output).expect("flow generation works");
         let output = String::from_utf8(output).expect("flow is utf-8");
 
         assert!(
@@ -1252,7 +1264,7 @@ mod tests {
 
     #[test]
     fn variadic_positionals_emit_required_arrays_in_order() {
-        let mut cmd = Command::new("demo-tool").subcommand(
+        let cmd = Command::new("demo-tool").subcommand(
             Command::new("copy")
                 .arg(Arg::new("source").required(true))
                 .arg(
@@ -1265,7 +1277,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(Flow::new(), &mut cmd, "demo-tool", &mut output).expect("flow generation works");
+        generate(Flow::new(), &cmd, "demo-tool", &mut output).expect("flow generation works");
         let output = String::from_utf8(output).expect("flow is utf-8");
 
         assert!(
@@ -1291,12 +1303,12 @@ mod tests {
 
     #[test]
     fn node_runtime_generates_child_process_helpers() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(Arg::new("config").long("config").action(ArgAction::Set))
             .subcommand(Command::new("run").arg(Arg::new("target").required(true)));
 
         let mut output = Vec::<u8>::new();
-        generate(Flow::new().node(), &mut cmd, "demo-tool", &mut output)
+        generate(Flow::new().node(), &cmd, "demo-tool", &mut output)
             .expect("node flow generation works");
         let output = String::from_utf8(output).expect("flow is utf-8");
 
@@ -1317,12 +1329,12 @@ mod tests {
 
     #[test]
     fn rejects_colliding_subcommand_prefixes() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .subcommand(Command::new("index-foo"))
             .subcommand(Command::new("index").subcommand(Command::new("foo")));
 
         let mut output = Vec::<u8>::new();
-        let err = generate(Flow::new(), &mut cmd, "demo-tool", &mut output).expect_err("collision");
+        let err = generate(Flow::new(), &cmd, "demo-tool", &mut output).expect_err("collision");
 
         let message = err.to_string();
         assert!(message.contains("IndexFoo"));
@@ -1331,7 +1343,7 @@ mod tests {
 
     #[test]
     fn wide_integer_emits_string_or_number_to_preserve_precision() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(
                 Arg::new("epoch_ns")
                     .long("epoch-ns")
@@ -1346,7 +1358,7 @@ mod tests {
             );
 
         let mut output = Vec::<u8>::new();
-        generate(Flow::new(), &mut cmd, "demo-tool", &mut output).expect("flow generation works");
+        generate(Flow::new(), &cmd, "demo-tool", &mut output).expect("flow generation works");
         let output = String::from_utf8(output).expect("flow is utf-8");
 
         assert!(
@@ -1361,11 +1373,11 @@ mod tests {
 
     #[test]
     fn zod_array_schema_skips_max_for_repeated_options() {
-        let mut cmd =
+        let cmd =
             Command::new("demo-tool").arg(Arg::new("tag").long("tag").action(ArgAction::Append));
 
         let mut output = Vec::<u8>::new();
-        generate(Flow::new().zod(), &mut cmd, "demo-tool", &mut output)
+        generate(Flow::new().zod(), &cmd, "demo-tool", &mut output)
             .expect("zod flow generation works");
         let output = String::from_utf8(output).expect("flow is utf-8");
 

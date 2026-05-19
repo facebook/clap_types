@@ -57,8 +57,8 @@ fn main() -> std::io::Result<()> {
     let matches = build_cli().subcommand(binding_command()).get_matches();
 
     if let Some((BINDING_COMMAND_NAME, binding_matches)) = matches.subcommand() {
-        let mut cmd = build_cli();
-        let path = generate_binding_from_matches(&mut cmd, "repo-agent", binding_matches)?;
+        let cmd = build_cli();
+        let path = generate_binding_from_matches(&cmd, "repo-agent", binding_matches)?;
         eprintln!("generated {}", path.display());
         return Ok(());
     }

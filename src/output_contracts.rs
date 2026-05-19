@@ -1,5 +1,14 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
+//! Optional structured-output contracts attached to a clap command via clap's
+//! unstable extension API. Gated behind the `unstable-output-contracts`
+//! feature.
+//!
+//! Use [`ClapTypesCommandExt::output_contract`] or
+//! [`ClapTypesCommandExt::output_contracts`] on a `clap::Command` to declare
+//! what a subcommand writes to stdout; backends that support contracts emit
+//! matching parser helpers and type aliases.
+
 use clap::Command;
 use clap::builder::CommandExt;
 
@@ -32,7 +41,7 @@ impl OutputContracts {
 
     /// Add multiple output contracts.
     #[must_use]
-    pub fn extend(mut self, contracts: OutputContracts) -> Self {
+    pub fn with_all(mut self, contracts: OutputContracts) -> Self {
         self.contracts.extend(contracts.contracts);
         self
     }
@@ -156,7 +165,7 @@ impl ClapTypesCommandExt for Command {
             .get::<OutputContracts>()
             .cloned()
             .unwrap_or_default()
-            .extend(contracts);
+            .with_all(contracts);
         self.add(contracts)
     }
 }

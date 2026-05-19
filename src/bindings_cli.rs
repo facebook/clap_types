@@ -1,6 +1,12 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
+//! Embeddable `generate-binding` clap subcommand that emits bindings from a
+//! host CLI through every supported generator (TypeScript, Flow, Python, Rust,
+//! Kotlin). Host CLIs add the subcommand with [`binding_command`] and dispatch
+//! to it with [`generate_binding_from_matches`].
+
 use std::io;
+use std::path::Path;
 use std::path::PathBuf;
 
 use clap::Arg;
@@ -140,7 +146,7 @@ pub fn binding_command() -> Command {
 /// Returns the primary output path. For single-file generators this is the file;
 /// for package generators this is the package directory.
 pub fn generate_binding_from_matches(
-    cmd: &mut Command,
+    cmd: &Command,
     bin_name: impl Into<String>,
     matches: &ArgMatches,
 ) -> io::Result<PathBuf> {
@@ -168,7 +174,7 @@ pub fn generate_binding_from_matches(
 /// Unlike [`generate_binding_from_matches`], this variant always enables
 /// output-contract generation since the caller explicitly supplies the specs.
 pub fn generate_binding_from_matches_with_outputs(
-    cmd: &mut Command,
+    cmd: &Command,
     bin_name: &str,
     matches: &ArgMatches,
     outputs: Vec<OutputSpec>,
@@ -261,7 +267,7 @@ pub fn generate_binding_from_matches_with_outputs(
 }
 
 fn generate_typescript(
-    cmd: &mut Command,
+    cmd: &Command,
     bin_name: &str,
     matches: &ArgMatches,
 ) -> io::Result<PathBuf> {
@@ -291,7 +297,7 @@ fn generate_typescript(
     )
 }
 
-fn generate_flow(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
+fn generate_flow(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
     let mut generator = Flow::new();
 
     if let Some(module_name) = matches.get_one::<String>("module_name") {
@@ -318,7 +324,7 @@ fn generate_flow(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io:
     )
 }
 
-fn generate_python(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
+fn generate_python(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
     let mut generator = Python::new();
 
     if let Some(module_name) = matches.get_one::<String>("module_name") {
@@ -340,7 +346,7 @@ fn generate_python(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> i
     }
 }
 
-fn generate_rust(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
+fn generate_rust(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
     let mut generator = Rust::new();
 
     if let Some(module_name) = matches.get_one::<String>("module_name") {
@@ -359,7 +365,7 @@ fn generate_rust(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io:
     )
 }
 
-fn generate_kotlin(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
+fn generate_kotlin(cmd: &Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
     let mut generator = Kotlin::new();
 
     if let Some(module_name) = matches.get_one::<String>("module_name") {
@@ -440,13 +446,16 @@ fn output_contract_args() -> [Arg; 2] {
 }
 
 fn wants_output_contracts(matches: &ArgMatches) -> bool {
-    matches.get_flag("output_contracts") && !matches.get_flag("no_output_contracts")
+    // The two flags `conflicts_with` each other at the clap level, so checking
+    // `!no_output_contracts` here would always be true when `output_contracts`
+    // is set.
+    matches.get_flag("output_contracts")
 }
 
 fn write_spec(
     generator: &impl Generator,
     spec: &CliSpec,
-    out_dir: &PathBuf,
+    out_dir: &Path,
 ) -> io::Result<PathBuf> {
     use std::io::Write;
 

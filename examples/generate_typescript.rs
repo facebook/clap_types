@@ -31,10 +31,10 @@ fn build_cli() -> Command {
 }
 
 fn main() -> std::io::Result<()> {
-    let mut cmd = build_cli();
+    let cmd = build_cli();
     generate(
         TypeScript::new(),
-        &mut cmd,
+        &cmd,
         "example",
         &mut std::io::stdout(),
     )

@@ -1,5 +1,14 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
+//! Kotlin/JVM code generator: emits data classes, enum classes, argv builders,
+//! and optional `ProcessBuilder` conveniences for desktop callers.
+//!
+//! `OutputEncoding::Json` returns the raw stdout string wrapped in
+//! `ParsedOutput.Json`; callers pick a deserialization library
+//! (`kotlinx.serialization`, Jackson, Moshi, ...) and a target type. The
+//! TypeScript, Flow, and Python backends deserialize eagerly via the runtime's
+//! built-in JSON parser instead.
+
 use std::io::Write;
 use std::io::{self};
 
@@ -674,7 +683,7 @@ mod tests {
 
     #[test]
     fn generates_typed_kotlin_builders() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(Arg::new("verbose").short('v').action(ArgAction::Count))
             .subcommand(
                 Command::new("run")
@@ -688,7 +697,7 @@ mod tests {
             );
 
         let mut output = Vec::<u8>::new();
-        generate(Kotlin::new(), &mut cmd, "demo-tool", &mut output)
+        generate(Kotlin::new(), &cmd, "demo-tool", &mut output)
             .expect("kotlin generation works");
         let output = String::from_utf8(output).expect("kotlin is utf-8");
 
@@ -736,7 +745,7 @@ mod tests {
 
     #[test]
     fn variadic_positionals_emit_required_lists_in_order() {
-        let mut cmd = Command::new("demo-tool").subcommand(
+        let cmd = Command::new("demo-tool").subcommand(
             Command::new("copy")
                 .arg(Arg::new("source").required(true))
                 .arg(
@@ -749,7 +758,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(Kotlin::new(), &mut cmd, "demo-tool", &mut output)
+        generate(Kotlin::new(), &cmd, "demo-tool", &mut output)
             .expect("kotlin generation works");
         let output = String::from_utf8(output).expect("kotlin is utf-8");
 

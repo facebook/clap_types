@@ -1,5 +1,14 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
+//! Rust code generator: emits dependency-free structs, enums, argv builders,
+//! and optional `std::process` helpers.
+//!
+//! `OutputEncoding::Json` returns the raw stdout string wrapped in
+//! `ParsedOutput::Json`; callers pick a deserialization library
+//! (`serde_json`, `simd-json`, `sonic-rs`, ...) and a target type. The
+//! TypeScript, Flow, and Python backends deserialize eagerly via the
+//! runtime's built-in JSON parser instead.
+
 use std::io::Write;
 use std::io::{self};
 
@@ -126,6 +135,7 @@ pub struct CommandInvocation {
 }
 
 impl CommandInvocation {
+    #[must_use]
     pub fn argv(&self) -> Vec<String> {
         let mut argv = Vec::with_capacity(self.args.len() + 1);
         argv.push(self.program.clone());
@@ -133,6 +143,7 @@ impl CommandInvocation {
         argv
     }
 
+    #[must_use]
     pub fn command(&self) -> std::process::Command {
         let mut command = std::process::Command::new(&self.program);
         command.args(&self.args);
@@ -741,7 +752,7 @@ mod tests {
 
     #[test]
     fn generates_typed_rust_builders() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(Arg::new("verbose").short('v').action(ArgAction::Count))
             .subcommand(
                 Command::new("run")
@@ -755,7 +766,7 @@ mod tests {
             );
 
         let mut output = Vec::<u8>::new();
-        generate(Rust::new(), &mut cmd, "demo-tool", &mut output).expect("rust generation works");
+        generate(Rust::new(), &cmd, "demo-tool", &mut output).expect("rust generation works");
         let output = String::from_utf8(output).expect("rust is utf-8");
 
         assert!(output.contains("pub const PROGRAM: &str = \"demo-tool\";"));
@@ -770,14 +781,14 @@ mod tests {
     #[test]
     #[ignore = "shells out to rustc which is not available in Buck CI"]
     fn generated_rust_compiles() {
-        let mut cmd = Command::new("demo-tool").subcommand(
+        let cmd = Command::new("demo-tool").subcommand(
             Command::new("run")
                 .arg(Arg::new("target").required(true))
                 .arg(Arg::new("tag").long("tag").action(ArgAction::Append)),
         );
 
         let mut output = Vec::<u8>::new();
-        generate(Rust::new(), &mut cmd, "demo-tool", &mut output).expect("rust generation works");
+        generate(Rust::new(), &cmd, "demo-tool", &mut output).expect("rust generation works");
         let source = String::from_utf8(output).expect("rust is utf-8");
 
         let dir = std::env::temp_dir().join(format!(
@@ -812,7 +823,7 @@ mod tests {
 
     #[test]
     fn variadic_positionals_emit_required_vecs_in_order() {
-        let mut cmd = Command::new("demo-tool").subcommand(
+        let cmd = Command::new("demo-tool").subcommand(
             Command::new("copy")
                 .arg(Arg::new("source").required(true))
                 .arg(
@@ -825,7 +836,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(Rust::new(), &mut cmd, "demo-tool", &mut output).expect("rust generation works");
+        generate(Rust::new(), &cmd, "demo-tool", &mut output).expect("rust generation works");
         let output = String::from_utf8(output).expect("rust is utf-8");
 
         assert!(

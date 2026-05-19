@@ -134,10 +134,10 @@ fn python_roundtrip_drives_clap_via_generated_bindings() {
     let dir = temp_dir("python");
     fs::create_dir_all(&dir).expect("create temp dir");
 
-    let mut cmd = echo_args::cli();
+    let cmd = echo_args::cli();
     generate_to(
         Python::new().module_name("echo_args"),
-        &mut cmd,
+        &cmd,
         "echo-args",
         &dir,
     )
@@ -193,8 +193,8 @@ fn typescript_roundtrip_drives_clap_via_generated_bindings() {
     let dir = temp_dir("typescript");
     fs::create_dir_all(&dir).expect("create temp dir");
 
-    let mut cmd = echo_args::cli();
-    generate_to(TypeScript::new(), &mut cmd, "echo-args", &dir)
+    let cmd = echo_args::cli();
+    generate_to(TypeScript::new(), &cmd, "echo-args", &dir)
         .expect("generate typescript bindings");
 
     // Generator names the file `echo-args.ts` (kebab-cased from bin_name).
@@ -265,8 +265,8 @@ fn flow_roundtrip_drives_clap_via_generated_bindings() {
     let dir = temp_dir("flow");
     fs::create_dir_all(&dir).expect("create temp dir");
 
-    let mut cmd = echo_args::cli();
-    generate_to(Flow::new(), &mut cmd, "echo-args", &dir).expect("generate flow bindings");
+    let cmd = echo_args::cli();
+    generate_to(Flow::new(), &cmd, "echo-args", &dir).expect("generate flow bindings");
 
     let harness = r#"
 // @flow strict
