@@ -63,7 +63,7 @@ dependency-free `parseOutput()` helper for explicitly declared output metadata.
 - Global clap args are inherited into subcommand interfaces.
 
 This is intentionally conservative. A Rust `PathBuf`, `u64`, or custom parser may
-have richer semantics, but a generated cross-language wrapper cannot safely assume
+have richer semantics, but a generated cross-language wrapper cannot reliably assume
 that without more metadata.
 
 ## Zod Mode

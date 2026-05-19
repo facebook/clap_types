@@ -25,8 +25,8 @@ changes through source control.
 - Skip hidden clap nodes by default. Hidden flags are usually implementation details
   or generation hooks, not programmatic API.
 - Treat clap's value parser type information conservatively. Enumerated possible
-  values are visible and safe to turn into language unions; arbitrary Rust parser
-  types are not yet a portable IDL.
+  values are visible and straightforward to turn into language unions; arbitrary
+  Rust parser types are not yet a portable IDL.
 - Use the current setup actions for generated-code CI: `actions/setup-python@v6`,
   `actions/setup-node@v6`, and `oven-sh/setup-bun@v2`.
 

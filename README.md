@@ -3,7 +3,7 @@
 `clap_types` turns Rust CLIs into multi-language client libraries.
 
 If your Rust tool is defined with [`clap`](https://crates.io/crates/clap),
-`clap_types` reflects its command tree and generates type-safe clients for
+`clap_types` reflects its command tree and generates strongly-typed clients for
 TypeScript, Flow-annotated JavaScript, Python, Rust, and Kotlin/JVM. Those clients
 know how to build argv, optionally invoke the executable, and optionally describe or
 parse structured output contracts.

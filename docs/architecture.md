@@ -2,7 +2,7 @@
 
 ## Goal
 
-`clap_types` turns a Rust `clap::Command` into type-safe bindings for constructing
+`clap_types` turns a Rust `clap::Command` into strongly-typed bindings for constructing
 argv in other languages. The default generated libraries return argv arrays so each
 runtime can choose its own process layer, sandbox, IPC boundary, or agent tool
 integration. Optional runtime modes layer thin standard-library process helpers on
@@ -52,7 +52,7 @@ language-neutral:
 - `CommandSpec`: command tree node.
 - `ArgSpec`: reflected argument behavior.
 - `ValueSpec`: arity, displayed value names, repeated values, and completion hints.
-- `EnumValue`: safe enum values from clap possible values.
+- `EnumValue`: validated enum values from clap possible values.
 - `OutputSpec`: explicitly declared structured output contracts, including
   encoding, buffered/streaming/interactive mode, symbolic type names, and optional
   JSON Schema payloads.
@@ -73,7 +73,7 @@ Clap can reliably expose:
   known parser types like `PathBuf`.
 
 Clap cannot currently be treated as a complete cross-language IDL for arbitrary Rust
-parser types. The safe default type for non-enum values is therefore `string`.
+parser types. The conservative default type for non-enum values is therefore `string`.
 
 ## Structured Input Metadata
 

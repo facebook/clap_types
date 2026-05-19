@@ -2,7 +2,7 @@
 
 ## Project Intent
 
-`clap_types` generates type-safe argv builders from Rust CLIs defined with `clap`.
+`clap_types` generates strongly-typed argv builders from Rust CLIs defined with `clap`.
 Think of it as a sibling to `clap_complete`, `clap_mangen`, and `clap-markdown`, but
 for programmatic command invocation in agent, Node, Electron, Python, Kotlin, and
 other runtime environments.
