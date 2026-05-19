@@ -1,7 +1,13 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
-use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
-use clap_types::{BINDING_COMMAND_NAME, binding_command, generate_binding_from_matches};
+use clap::Arg;
+use clap::ArgAction;
+use clap::Command;
+use clap::ValueHint;
+use clap::value_parser;
+use clap_types::BINDING_COMMAND_NAME;
+use clap_types::binding_command;
+use clap_types::generate_binding_from_matches;
 
 fn build_cli() -> Command {
     Command::new("repo-agent")
@@ -51,8 +57,8 @@ fn main() -> std::io::Result<()> {
     let matches = build_cli().subcommand(binding_command()).get_matches();
 
     if let Some((BINDING_COMMAND_NAME, binding_matches)) = matches.subcommand() {
-        let mut cmd = build_cli();
-        let path = generate_binding_from_matches(&mut cmd, "repo-agent", binding_matches)?;
+        let cmd = build_cli();
+        let path = generate_binding_from_matches(&cmd, "repo-agent", binding_matches)?;
         eprintln!("generated {}", path.display());
         return Ok(());
     }

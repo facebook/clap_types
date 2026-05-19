@@ -15,7 +15,7 @@ def main() -> None:
     generated = Path(sys.argv[1])
     sys.path.insert(0, str(generated / "python-package"))
 
-    from repo_agent import AgentRunArgs, RepoAgent, build_agent_run_args
+    from repo_agent import AgentRunArgs, build_agent_run_args, RepoAgent
     from repo_agent.agent.run import Args, build_args, command
 
     args = Args(

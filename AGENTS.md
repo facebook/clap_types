@@ -2,7 +2,7 @@
 
 ## Project Intent
 
-`clap_types` generates type-safe argv builders from Rust CLIs defined with `clap`.
+`clap_types` generates strongly-typed argv builders from Rust CLIs defined with `clap`.
 Think of it as a sibling to `clap_complete`, `clap_mangen`, and `clap-markdown`, but
 for programmatic command invocation in agent, Node, Electron, Python, Kotlin, and
 other runtime environments.
@@ -12,22 +12,31 @@ to the caller's runtime.
 
 ## Architecture
 
-- `src/reflect.rs`: converts `clap::Command` into the internal model.
-- `src/model.rs`: language-neutral IR shared by all generators.
-- `src/generate.rs`: public `Generator`, `generate`, and `generate_to` API.
-- `src/bindings_cli.rs`: reusable hidden `generate-binding` clap subcommand for
-  embedding the generators in consuming CLIs.
+- `src/reflect.rs`: converts `clap::Command` into the internal model. Exposes
+  `reflect_command`, `reflect_command_with_name`, and the
+  `reflect_command_with_options` + `ReflectOptions` pair for opting into hidden
+  subcommands and args.
+- `src/model.rs`: language-neutral IR shared by all generators. All public
+  structs and enums are `#[non_exhaustive]`.
+- `src/generate.rs`: public `Generator` trait plus the `generate`,
+  `generate_to`, and `generate_to_with_options` entry points.
+- `src/bindings_cli.rs`: reusable hidden `generate-binding` clap subcommand
+  (`binding_command`, `generate_binding_from_matches`, and the
+  `_with_outputs` variant for injecting caller-supplied output specs).
 - `src/output_contracts.rs`: optional clap extension bridge compiled with
   `unstable-output-contracts`.
 - `src/typescript.rs`: TypeScript backend.
+- `src/flow.rs`: Flow-annotated JavaScript backend.
 - `src/python.rs`: Python 3.10+ backend.
 - `src/rust.rs`: dependency-free Rust backend.
 - `src/kotlin.rs`: Kotlin/JVM desktop backend.
-- `docs/`: design notes, research, output-contract direction, and test strategy.
+- `docs/`: architecture, output-contract direction, per-backend notes, and
+  test strategy.
 - `examples/`: small consuming-clap examples.
-- `examples/clients/`: runnable Python and TypeScript consumers of generated code.
-- `tests/generated/`: generated-code smoke tests for Python, TypeScript, Rust, and
-  Kotlin.
+- `examples/clients/`: runnable Python, TypeScript, and Flow consumers of
+  generated code.
+- `tests/generated/`: generated-code smoke tests for Python, TypeScript, Flow,
+  Rust, and Kotlin.
 
 Backends should render from `CliSpec`; do not make each backend rediscover clap
 reflection details.

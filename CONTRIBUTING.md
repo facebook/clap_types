@@ -4,7 +4,7 @@
 
 Thanks for your interest in contributing to this repository.
 
-`clap_types` generates type-safe argv builders from Rust CLIs defined with
+`clap_types` generates strongly-typed argv builders from Rust CLIs defined with
 `clap`. Before contributing, please review our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## How to Contribute

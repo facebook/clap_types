@@ -5,9 +5,13 @@
 use std::collections::HashMap;
 use std::io;
 
-use crate::model::{
-    ArgKind, ArgSpec, CliSpec, CommandSpec, OutputEncoding, OutputMode, OutputSchema,
-};
+use crate::model::ArgKind;
+use crate::model::ArgSpec;
+use crate::model::CliSpec;
+use crate::model::CommandSpec;
+use crate::model::OutputEncoding;
+use crate::model::OutputMode;
+use crate::model::OutputSchema;
 
 pub(crate) fn inherited_globals<'a>(
     inherited: &[&'a ArgSpec],

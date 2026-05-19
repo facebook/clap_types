@@ -9,12 +9,17 @@
 use std::collections::HashMap;
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command as ProcCommand;
 use std::sync::OnceLock;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
-use clap_types::{Flow, Python, TypeScript, generate_to};
+use clap_types::Flow;
+use clap_types::Python;
+use clap_types::TypeScript;
+use clap_types::generate_to;
 
 #[path = "fixtures/echo_args.rs"]
 mod echo_args;
@@ -129,10 +134,10 @@ fn python_roundtrip_drives_clap_via_generated_bindings() {
     let dir = temp_dir("python");
     fs::create_dir_all(&dir).expect("create temp dir");
 
-    let mut cmd = echo_args::cli();
+    let cmd = echo_args::cli();
     generate_to(
         Python::new().module_name("echo_args"),
-        &mut cmd,
+        &cmd,
         "echo-args",
         &dir,
     )
@@ -188,9 +193,8 @@ fn typescript_roundtrip_drives_clap_via_generated_bindings() {
     let dir = temp_dir("typescript");
     fs::create_dir_all(&dir).expect("create temp dir");
 
-    let mut cmd = echo_args::cli();
-    generate_to(TypeScript::new(), &mut cmd, "echo-args", &dir)
-        .expect("generate typescript bindings");
+    let cmd = echo_args::cli();
+    generate_to(TypeScript::new(), &cmd, "echo-args", &dir).expect("generate typescript bindings");
 
     // Generator names the file `echo-args.ts` (kebab-cased from bin_name).
     // node16 module resolution requires explicit `.js` extension on imports;
@@ -260,8 +264,8 @@ fn flow_roundtrip_drives_clap_via_generated_bindings() {
     let dir = temp_dir("flow");
     fs::create_dir_all(&dir).expect("create temp dir");
 
-    let mut cmd = echo_args::cli();
-    generate_to(Flow::new(), &mut cmd, "echo-args", &dir).expect("generate flow bindings");
+    let cmd = echo_args::cli();
+    generate_to(Flow::new(), &cmd, "echo-args", &dir).expect("generate flow bindings");
 
     let harness = r#"
 // @flow strict

@@ -3,7 +3,7 @@
 `clap_types` turns Rust CLIs into multi-language client libraries.
 
 If your Rust tool is defined with [`clap`](https://crates.io/crates/clap),
-`clap_types` reflects its command tree and generates type-safe clients for
+`clap_types` reflects its command tree and generates strongly-typed clients for
 TypeScript, Flow-annotated JavaScript, Python, Rust, and Kotlin/JVM. Those clients
 know how to build argv, optionally invoke the executable, and optionally describe or
 parse structured output contracts.
@@ -104,33 +104,33 @@ fn build_cli() -> Command {
         .arg(Arg::new("verbose").short('v').action(ArgAction::Count))
 }
 
-let mut cmd = build_cli();
-generate(TypeScript::new(), &mut cmd, "demo", &mut std::io::stdout())?;
+let cmd = build_cli();
+generate(TypeScript::new(), &cmd, "demo", &mut std::io::stdout())?;
 
-let mut cmd = build_cli();
-generate(TypeScript::new().zod(), &mut cmd, "demo", &mut std::io::stdout())?;
+let cmd = build_cli();
+generate(TypeScript::new().zod(), &cmd, "demo", &mut std::io::stdout())?;
 
-let mut cmd = build_cli();
-generate(TypeScript::new().node(), &mut cmd, "demo", &mut std::io::stdout())?;
+let cmd = build_cli();
+generate(TypeScript::new().node(), &cmd, "demo", &mut std::io::stdout())?;
 
-let mut cmd = build_cli();
-generate(Flow::new().zod().node(), &mut cmd, "demo", &mut std::io::stdout())?;
+let cmd = build_cli();
+generate(Flow::new().zod().node(), &cmd, "demo", &mut std::io::stdout())?;
 
-let mut cmd = build_cli();
+let cmd = build_cli();
 generate(
     Python::new()
         .module_name("demo_bindings")
         .namespace("Demo"),
-    &mut cmd,
+    &cmd,
     "demo",
     &mut std::io::stdout(),
 )?;
 
-let mut cmd = build_cli();
-generate(Rust::new(), &mut cmd, "demo", &mut std::io::stdout())?;
+let cmd = build_cli();
+generate(Rust::new(), &cmd, "demo", &mut std::io::stdout())?;
 
-let mut cmd = build_cli();
-generate(Kotlin::new(), &mut cmd, "demo", &mut std::io::stdout())?;
+let cmd = build_cli();
+generate(Kotlin::new(), &cmd, "demo", &mut std::io::stdout())?;
 # Ok::<(), std::io::Error>(())
 ```
 
@@ -140,9 +140,28 @@ For file generation, use `generate_to`:
 use clap::Command;
 use clap_types::{generate_to, TypeScript};
 
-let mut cmd = Command::new("demo");
-let path = generate_to(TypeScript::new(), &mut cmd, "demo", "target/generated")?;
+let cmd = Command::new("demo");
+let path = generate_to(TypeScript::new(), &cmd, "demo", "target/generated")?;
 assert_eq!(path.file_name().unwrap(), "demo.ts");
+# Ok::<(), std::io::Error>(())
+```
+
+Hidden subcommands and args are skipped by default. Use
+`generate_to_with_options` with `ReflectOptions::all()` to include them:
+
+```rust
+use clap::Command;
+use clap_types::{generate_to_with_options, ReflectOptions, TypeScript};
+
+let cmd = Command::new("demo");
+let path = generate_to_with_options(
+    TypeScript::new(),
+    &cmd,
+    "demo",
+    "target/generated",
+    ReflectOptions::all(),
+)?;
+# assert_eq!(path.file_name().unwrap(), "demo.ts");
 # Ok::<(), std::io::Error>(())
 ```
 
@@ -165,8 +184,8 @@ fn main() -> std::io::Result<()> {
     let matches = build_cli().subcommand(binding_command()).get_matches();
 
     if let Some((BINDING_COMMAND_NAME, binding_matches)) = matches.subcommand() {
-        let mut cmd = build_cli();
-        let path = generate_binding_from_matches(&mut cmd, "demo", binding_matches)?;
+        let cmd = build_cli();
+        let path = generate_binding_from_matches(&cmd, "demo", binding_matches)?;
         eprintln!("generated {}", path.display());
         return Ok(());
     }
@@ -219,13 +238,13 @@ fn cli() -> Command {
         )
 }
 
-let mut cmd = cli();
-generate_to(TypeScript::new(), &mut cmd, "repo-agent", "target/generated/typescript")?;
+let cmd = cli();
+generate_to(TypeScript::new(), &cmd, "repo-agent", "target/generated/typescript")?;
 
-let mut cmd = cli();
+let cmd = cli();
 generate_to(
     Python::new().module_name("repo_agent_bindings").namespace("RepoAgent"),
-    &mut cmd,
+    &cmd,
     "repo-agent",
     "target/generated/python",
 )?;
@@ -265,8 +284,8 @@ enum OutputFormat {
     Json,
 }
 
-let mut cmd = OpsCtl::command();
-generate_to(TypeScript::new().zod(), &mut cmd, "opsctl", "target/generated/typescript-zod")?;
+let cmd = OpsCtl::command();
+generate_to(TypeScript::new().zod(), &cmd, "opsctl", "target/generated/typescript-zod")?;
 # Ok::<(), std::io::Error>(())
 ```
 
@@ -389,10 +408,12 @@ let zod_generator = Flow::new().module_name("repo-agent-zod").zod();
 let node_generator = Flow::new().module_name("repo-agent-node").node();
 ```
 
-The generated JavaScript uses exact object types, `$ReadOnlyArray` for repeated
-values, optional Zod schemas, and optional Node `child_process` helpers. Runtime
-tests strip Flow annotations with `flow-remove-types` before executing under Node
-or Bun.
+The generated JavaScript uses exact object types, `ReadonlyArray` for repeated
+values, optional Zod schemas, and optional Node `child_process` helpers. Every
+generated module starts with a `/** @generated @flow strict */` header so
+downstream tooling and linters recognize the file as generated. Runtime tests
+strip Flow annotations with `flow-remove-types` before executing under Node or
+Bun.
 
 ## Generated Python
 
@@ -434,13 +455,13 @@ fn build_cli() -> Command {
     Command::new("repo-agent")
 }
 
-let mut cmd = build_cli();
+let cmd = build_cli();
 generate_to(
     Python::new()
         .module_name("repo_agent")
         .namespace("RepoAgent")
         .package(),
-    &mut cmd,
+    &cmd,
     "repo-agent",
     "target/generated/python-package",
 )?;
@@ -510,10 +531,12 @@ let generator = Rust::new().output_contracts();
 let generator = Kotlin::new().output_contracts();
 ```
 
-Generated parsers stay dependency-free. They preserve JSON as parsed `unknown` in
-TypeScript and `mixed` in Flow, use `json.loads` in Python, and expose framed
-JSON/JSON-lines strings in Rust and Kotlin where the standard library has no JSON
-parser.
+Generated parsers stay dependency-free. They preserve JSON as parsed `unknown`
+in TypeScript and Flow (both call the runtime's built-in `JSON.parse`), use
+`json.loads` in Python, and expose framed JSON/JSON-lines strings in Rust and
+Kotlin so callers can pick their own deserialization library
+(`serde_json`/`simd-json`/`sonic-rs` for Rust; `kotlinx.serialization`/Jackson/
+Moshi for Kotlin) and target type.
 
 ## Structured Type Hints
 
@@ -625,4 +648,17 @@ More design detail lives in:
 
 ## License
 
-This project is licensed under the MIT license. See [`LICENSE`](LICENSE).
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
+  <http://www.apache.org/licenses/LICENSE-2.0>)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or
+  <http://opensource.org/licenses/MIT>)
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall
+be dual licensed as above, without any additional terms or conditions.

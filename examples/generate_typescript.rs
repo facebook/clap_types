@@ -1,7 +1,10 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
-use clap::{Arg, ArgAction, Command};
-use clap_types::{TypeScript, generate};
+use clap::Arg;
+use clap::ArgAction;
+use clap::Command;
+use clap_types::TypeScript;
+use clap_types::generate;
 
 fn build_cli() -> Command {
     Command::new("example")
@@ -28,11 +31,6 @@ fn build_cli() -> Command {
 }
 
 fn main() -> std::io::Result<()> {
-    let mut cmd = build_cli();
-    generate(
-        TypeScript::new(),
-        &mut cmd,
-        "example",
-        &mut std::io::stdout(),
-    )
+    let cmd = build_cli();
+    generate(TypeScript::new(), &cmd, "example", &mut std::io::stdout())
 }

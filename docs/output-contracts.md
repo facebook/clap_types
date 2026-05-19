@@ -2,7 +2,7 @@
 
 Clap describes command-line inputs. It does not describe stdout, stderr, exit status,
 or streaming protocols. Because of that, `clap_types` should not pretend it can parse
-arbitrary CLI output safely just by inspecting `clap::Command`.
+arbitrary CLI output reliably just by inspecting `clap::Command`.
 
 ## Direction
 

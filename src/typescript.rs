@@ -1,14 +1,34 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
-use std::io::{self, Write};
+//! TypeScript code generator: emits dependency-free argv builders, optional
+//! Zod schemas, and optional Node `child_process` helpers.
 
-use crate::codegen::{
-    capitalize, collapse_lines, combined_args, command_type_prefix, ensure_unique_command_prefixes,
-    inherited_globals, is_grouped_repeated, is_required, lower_join, option_token, output_encoding,
-    output_mode, output_schema, quote_double, safe_identifier, words,
-};
-use crate::generate::{Generator, OutputContractGeneration};
-use crate::model::{ArgKind, ArgSpec, CliSpec, CommandSpec, ValueType};
+use std::io::Write;
+use std::io::{self};
+
+use crate::codegen::capitalize;
+use crate::codegen::collapse_lines;
+use crate::codegen::combined_args;
+use crate::codegen::command_type_prefix;
+use crate::codegen::ensure_unique_command_prefixes;
+use crate::codegen::inherited_globals;
+use crate::codegen::is_grouped_repeated;
+use crate::codegen::is_required;
+use crate::codegen::lower_join;
+use crate::codegen::option_token;
+use crate::codegen::output_encoding;
+use crate::codegen::output_mode;
+use crate::codegen::output_schema;
+use crate::codegen::quote_double;
+use crate::codegen::safe_identifier;
+use crate::codegen::words;
+use crate::generate::Generator;
+use crate::generate::OutputContractGeneration;
+use crate::model::ArgKind;
+use crate::model::ArgSpec;
+use crate::model::CliSpec;
+use crate::model::CommandSpec;
+use crate::model::ValueType;
 
 /// Options for the TypeScript backend.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -868,13 +888,17 @@ fn kebab_file_stem(input: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use clap::{Arg, ArgAction, Command, value_parser};
+    use clap::Arg;
+    use clap::ArgAction;
+    use clap::Command;
+    use clap::value_parser;
 
-    use crate::{TypeScript, generate};
+    use crate::TypeScript;
+    use crate::generate;
 
     #[test]
     fn generates_typed_command_builders() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(
                 Arg::new("config")
                     .long("config")
@@ -902,7 +926,7 @@ mod tests {
             .subcommand(Command::new("run").arg(Arg::new("target").required(true)));
 
         let mut output = Vec::<u8>::new();
-        generate(TypeScript::new(), &mut cmd, "demo-tool", &mut output)
+        generate(TypeScript::new(), &cmd, "demo-tool", &mut output)
             .expect("typescript generation works");
         let output = String::from_utf8(output).expect("typescript is utf-8");
 
@@ -919,7 +943,7 @@ mod tests {
 
     #[test]
     fn generates_zod_schemas_and_validating_builders() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(
                 Arg::new("mode")
                     .long("mode")
@@ -935,7 +959,7 @@ mod tests {
             .subcommand(Command::new("run").arg(Arg::new("target").required(true)));
 
         let mut output = Vec::<u8>::new();
-        generate(TypeScript::new().zod(), &mut cmd, "demo-tool", &mut output)
+        generate(TypeScript::new().zod(), &cmd, "demo-tool", &mut output)
             .expect("zod typescript generation works");
         let output = String::from_utf8(output).expect("typescript is utf-8");
 
@@ -950,13 +974,13 @@ mod tests {
 
     #[test]
     fn sanitizes_reserved_words_used_as_arg_ids() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(Arg::new("interface").long("interface"))
             .arg(Arg::new("private").long("private"))
             .arg(Arg::new("let").long("let"));
 
         let mut output = Vec::<u8>::new();
-        generate(TypeScript::new(), &mut cmd, "demo-tool", &mut output)
+        generate(TypeScript::new(), &cmd, "demo-tool", &mut output)
             .expect("typescript generation works");
         let output = String::from_utf8(output).expect("typescript is utf-8");
 
@@ -970,7 +994,7 @@ mod tests {
 
     #[test]
     fn generates_zod_schemas_without_validating_builders() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(
                 Arg::new("mode")
                     .long("mode")
@@ -982,7 +1006,7 @@ mod tests {
         let mut output = Vec::<u8>::new();
         generate(
             TypeScript::new().zod_schemas(),
-            &mut cmd,
+            &cmd,
             "demo-tool",
             &mut output,
         )
@@ -1002,7 +1026,7 @@ mod tests {
         // num_args(2) means exactly two values per occurrence on a single
         // occurrence option; the Zod array must enforce both .min(2) and
         // .max(2) so 1- and 3-element inputs are rejected.
-        let mut cmd = Command::new("demo-tool").arg(
+        let cmd = Command::new("demo-tool").arg(
             Arg::new("pair")
                 .long("pair")
                 .num_args(2)
@@ -1010,7 +1034,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(TypeScript::new().zod(), &mut cmd, "demo-tool", &mut output)
+        generate(TypeScript::new().zod(), &cmd, "demo-tool", &mut output)
             .expect("zod typescript generation works");
         let output = String::from_utf8(output).expect("typescript is utf-8");
 
@@ -1025,7 +1049,7 @@ mod tests {
         // `string | number` (BigInteger) and `"a" | "b"` (enum) both need
         // parens when wrapped in `readonly X[]`; without them TypeScript
         // parses `readonly string | number[]` as `(readonly string) | (number[])`.
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(
                 // BigInteger + ArgAction::Append → grouped repeated array of unions.
                 Arg::new("range")
@@ -1050,7 +1074,7 @@ mod tests {
             );
 
         let mut output = Vec::<u8>::new();
-        generate(TypeScript::new(), &mut cmd, "demo-tool", &mut output)
+        generate(TypeScript::new(), &cmd, "demo-tool", &mut output)
             .expect("typescript generation works");
         let output = String::from_utf8(output).expect("typescript is utf-8");
 
@@ -1074,7 +1098,7 @@ mod tests {
         // group of two values; the type must be `readonly (readonly T[])[]`
         // and the builder must use pushGroupedRepeatedOption to preserve
         // occurrence boundaries when emitting argv.
-        let mut cmd = Command::new("demo-tool").arg(
+        let cmd = Command::new("demo-tool").arg(
             Arg::new("pair")
                 .long("pair")
                 .num_args(2)
@@ -1082,7 +1106,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(TypeScript::new(), &mut cmd, "demo-tool", &mut output)
+        generate(TypeScript::new(), &cmd, "demo-tool", &mut output)
             .expect("typescript generation works");
         let output = String::from_utf8(output).expect("typescript is utf-8");
 
@@ -1098,7 +1122,7 @@ mod tests {
 
     #[test]
     fn variadic_positionals_emit_required_arrays_in_order() {
-        let mut cmd = Command::new("demo-tool").subcommand(
+        let cmd = Command::new("demo-tool").subcommand(
             Command::new("copy")
                 .arg(Arg::new("source").required(true))
                 .arg(
@@ -1111,7 +1135,7 @@ mod tests {
         );
 
         let mut output = Vec::<u8>::new();
-        generate(TypeScript::new(), &mut cmd, "demo-tool", &mut output)
+        generate(TypeScript::new(), &cmd, "demo-tool", &mut output)
             .expect("typescript generation works");
         let output = String::from_utf8(output).expect("typescript is utf-8");
 
@@ -1138,12 +1162,12 @@ mod tests {
 
     #[test]
     fn node_runtime_generates_child_process_helpers() {
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(Arg::new("config").long("config").action(ArgAction::Set))
             .subcommand(Command::new("run").arg(Arg::new("target").required(true)));
 
         let mut output = Vec::<u8>::new();
-        generate(TypeScript::new().node(), &mut cmd, "demo-tool", &mut output)
+        generate(TypeScript::new().node(), &cmd, "demo-tool", &mut output)
             .expect("node typescript generation works");
         let output = String::from_utf8(output).expect("typescript is utf-8");
 
@@ -1166,12 +1190,12 @@ mod tests {
     fn rejects_colliding_subcommand_prefixes() {
         // `index-foo` and `index foo` both produce the prefix `IndexFoo`. The
         // generator must refuse rather than silently emit duplicate types.
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .subcommand(Command::new("index-foo"))
             .subcommand(Command::new("index").subcommand(Command::new("foo")));
 
         let mut output = Vec::<u8>::new();
-        let err = generate(TypeScript::new(), &mut cmd, "demo-tool", &mut output)
+        let err = generate(TypeScript::new(), &cmd, "demo-tool", &mut output)
             .expect_err("expected collision to be reported");
 
         let message = err.to_string();
@@ -1190,7 +1214,7 @@ mod tests {
         // u64 / i64 / u128 / i128 / usize / isize all exceed
         // Number.MAX_SAFE_INTEGER, so the binding must accept a string fallback
         // instead of silently rounding the value before stringifying for argv.
-        let mut cmd = Command::new("demo-tool")
+        let cmd = Command::new("demo-tool")
             .arg(
                 Arg::new("epoch_ns")
                     .long("epoch-ns")
@@ -1205,7 +1229,7 @@ mod tests {
             );
 
         let mut output = Vec::<u8>::new();
-        generate(TypeScript::new(), &mut cmd, "demo-tool", &mut output)
+        generate(TypeScript::new(), &cmd, "demo-tool", &mut output)
             .expect("typescript generation works");
         let output = String::from_utf8(output).expect("typescript is utf-8");
 
@@ -1226,11 +1250,11 @@ mod tests {
         // ArgAction::Append + arity 1 means each occurrence contributes one
         // value, but the option can occur many times — so the array must
         // NOT be capped at .max(1) even though arity.max == Some(1).
-        let mut cmd =
+        let cmd =
             Command::new("demo-tool").arg(Arg::new("tag").long("tag").action(ArgAction::Append));
 
         let mut output = Vec::<u8>::new();
-        generate(TypeScript::new().zod(), &mut cmd, "demo-tool", &mut output)
+        generate(TypeScript::new().zod(), &cmd, "demo-tool", &mut output)
             .expect("zod typescript generation works");
         let output = String::from_utf8(output).expect("typescript is utf-8");
 

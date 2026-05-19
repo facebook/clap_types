@@ -1,7 +1,18 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
+//! Language-neutral intermediate representation of a reflected clap CLI.
+//!
+//! Backends in [`flow`](crate::flow), [`kotlin`](crate::kotlin),
+//! [`python`](crate::python), [`rust`](crate::rust), and
+//! [`typescript`](crate::typescript) consume these types — they should not
+//! reach back into `clap::Command` directly.
+//!
+//! All public types here are `#[non_exhaustive]` so new fields and enum
+//! variants can be added without breaking downstream callers.
+
 /// A reflected CLI surface that can be rendered into language bindings.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct CliSpec {
     /// The executable name consumers normally invoke.
     pub bin_name: String,
@@ -13,6 +24,7 @@ pub struct CliSpec {
 
 /// A command or subcommand in a clap command tree.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct CommandSpec {
     /// The command token used on the command line.
     pub name: String,
@@ -30,6 +42,7 @@ pub struct CommandSpec {
 
 /// A reflected clap argument.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ArgSpec {
     /// Stable clap argument id.
     pub id: String,
@@ -57,6 +70,7 @@ pub struct ArgSpec {
 
 /// How a reflected argument behaves when building argv.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ArgKind {
     /// Boolean flag emitted when the generated value is `true`.
     FlagTrue,
@@ -72,6 +86,7 @@ pub enum ArgKind {
 
 /// Value metadata for an argument.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ValueSpec {
     /// Names clap displays for values, such as `FILE` or `MODE`.
     pub names: Vec<String>,
@@ -87,6 +102,7 @@ pub struct ValueSpec {
 
 /// Portable value types visible through clap reflection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ValueType {
     /// Unknown parser type, rendered conservatively.
     Unknown,
@@ -112,6 +128,7 @@ pub enum ValueType {
 
 /// Number of values accepted by an argument.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ValueArity {
     /// Minimum number of values.
     pub min: usize,
@@ -147,6 +164,7 @@ impl ValueArity {
 
 /// An enumerated value accepted by a clap argument.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct EnumValue {
     /// The value spelling accepted on the command line.
     pub name: String,
@@ -156,6 +174,7 @@ pub struct EnumValue {
 
 /// Structured-output metadata that future generators can render.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct OutputSpec {
     /// Command path this output contract applies to.
     pub command_path: Vec<String>,
@@ -169,8 +188,37 @@ pub struct OutputSpec {
     pub schema: Option<OutputSchema>,
 }
 
+impl OutputSpec {
+    /// Create an `OutputSpec` for a command path with no schema attached.
+    ///
+    /// Use [`OutputSpec::with_schema`] to add an optional schema payload.
+    #[must_use]
+    pub fn new(
+        command_path: Vec<String>,
+        encoding: OutputEncoding,
+        mode: OutputMode,
+        type_name: impl Into<String>,
+    ) -> Self {
+        Self {
+            command_path,
+            encoding,
+            mode,
+            type_name: type_name.into(),
+            schema: None,
+        }
+    }
+
+    /// Attach a schema payload (e.g. JSON Schema) to this spec.
+    #[must_use]
+    pub fn with_schema(mut self, schema: OutputSchema) -> Self {
+        self.schema = Some(schema);
+        self
+    }
+}
+
 /// A declared output encoding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum OutputEncoding {
     /// A single JSON document on stdout.
     Json,
@@ -182,6 +230,7 @@ pub enum OutputEncoding {
 
 /// A declared output consumption mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum OutputMode {
     /// Output is collected after the process exits.
     Buffered,
@@ -193,6 +242,7 @@ pub enum OutputMode {
 
 /// Optional schema metadata for an output contract.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum OutputSchema {
     /// A JSON Schema document encoded as a string.
     JsonSchema(String),

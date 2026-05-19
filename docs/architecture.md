@@ -2,7 +2,7 @@
 
 ## Goal
 
-`clap_types` turns a Rust `clap::Command` into type-safe bindings for constructing
+`clap_types` turns a Rust `clap::Command` into strongly-typed bindings for constructing
 argv in other languages. The default generated libraries return argv arrays so each
 runtime can choose its own process layer, sandbox, IPC boundary, or agent tool
 integration. Optional runtime modes layer thin standard-library process helpers on
@@ -20,6 +20,7 @@ clap::Command reflection
 clap_types::CliSpec IR
         |
         +--> TypeScript generator
+        +--> Flow generator
         +--> Python generator
         +--> Rust generator
         +--> Kotlin generator
@@ -32,8 +33,14 @@ The crate follows the same broad shape as `clap_complete`:
 - `Generator`: backend trait.
 - `generate`: render to any writer.
 - `generate_to`: write the generated artifact or package to a directory.
+- `generate_to_with_options`: same as `generate_to` plus a `ReflectOptions`
+  argument for opting into hidden subcommands and args.
+- `reflect_command`, `reflect_command_with_name`, `reflect_command_with_options`:
+  low-level entry points if you want the `CliSpec` IR before generation.
 - `TypeScript`: dependency-free TypeScript argv builders.
 - `TypeScript::node()`: Node `child_process` helpers.
+- `Flow`: Flow-annotated JavaScript argv builders (`Flow::node()` for
+  `child_process` helpers; `Flow::zod()` for Zod schemas).
 - `Python`: Python 3.10+ dataclasses, argv builders, single-file modules, package
   layouts, and subprocess conveniences.
 - `Rust`: dependency-free Rust structs, enums, argv builders, and `std::process`
@@ -42,6 +49,16 @@ The crate follows the same broad shape as `clap_complete`:
   `ProcessBuilder` conveniences for desktop code.
 - `binding_command`: a hidden `generate-binding` clap subcommand that consuming
   CLIs can embed to expose every generator through their own executable.
+- `generate_binding_from_matches`: dispatches the `generate-binding` matches to
+  the right backend.
+- `generate_binding_from_matches_with_outputs`: same as above but accepts an
+  explicit `Vec<OutputSpec>` for callers who attach contracts outside the
+  `unstable-output-contracts` clap-extension path.
+
+All public types in `model.rs` are `#[non_exhaustive]`, so new fields and enum
+variants can be added without breaking downstream consumers. `OutputSpec` ships
+with an `OutputSpec::new(command_path, encoding, mode, type_name)` constructor
+and a `.with_schema(schema)` builder for the optional schema field.
 
 ## Intermediate Model
 
@@ -52,7 +69,7 @@ language-neutral:
 - `CommandSpec`: command tree node.
 - `ArgSpec`: reflected argument behavior.
 - `ValueSpec`: arity, displayed value names, repeated values, and completion hints.
-- `EnumValue`: safe enum values from clap possible values.
+- `EnumValue`: validated enum values from clap possible values.
 - `OutputSpec`: explicitly declared structured output contracts, including
   encoding, buffered/streaming/interactive mode, symbolic type names, and optional
   JSON Schema payloads.
@@ -73,7 +90,7 @@ Clap can reliably expose:
   known parser types like `PathBuf`.
 
 Clap cannot currently be treated as a complete cross-language IDL for arbitrary Rust
-parser types. The safe default type for non-enum values is therefore `string`.
+parser types. The conservative default type for non-enum values is therefore `string`.
 
 ## Structured Input Metadata
 
