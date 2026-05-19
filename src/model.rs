@@ -188,6 +188,34 @@ pub struct OutputSpec {
     pub schema: Option<OutputSchema>,
 }
 
+impl OutputSpec {
+    /// Create an `OutputSpec` for a command path with no schema attached.
+    ///
+    /// Use [`OutputSpec::with_schema`] to add an optional schema payload.
+    #[must_use]
+    pub fn new(
+        command_path: Vec<String>,
+        encoding: OutputEncoding,
+        mode: OutputMode,
+        type_name: impl Into<String>,
+    ) -> Self {
+        Self {
+            command_path,
+            encoding,
+            mode,
+            type_name: type_name.into(),
+            schema: None,
+        }
+    }
+
+    /// Attach a schema payload (e.g. JSON Schema) to this spec.
+    #[must_use]
+    pub fn with_schema(mut self, schema: OutputSchema) -> Self {
+        self.schema = Some(schema);
+        self
+    }
+}
+
 /// A declared output encoding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
