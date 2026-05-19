@@ -4,10 +4,22 @@
 
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
-use clap::{ArgAction, Args, CommandFactory, Parser, Subcommand, ValueEnum, ValueHint};
-use clap_types::{Flow, Kotlin, Python, Rust, TypeScript, generate_to};
+use clap::ArgAction;
+use clap::Args;
+use clap::CommandFactory;
+use clap::Parser;
+use clap::Subcommand;
+use clap::ValueEnum;
+use clap::ValueHint;
+use clap_types::Flow;
+use clap_types::Kotlin;
+use clap_types::Python;
+use clap_types::Rust;
+use clap_types::TypeScript;
+use clap_types::generate_to;
 
 fn main() -> std::io::Result<()> {
     let out_dir = env::args_os()

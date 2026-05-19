@@ -3,9 +3,22 @@
 use std::io;
 use std::path::PathBuf;
 
-use clap::{Arg, ArgAction, ArgMatches, Command};
+use clap::Arg;
+use clap::ArgAction;
+use clap::ArgMatches;
+use clap::Command;
 
-use crate::{Flow, Kotlin, Python, Rust, TypeScript, generate_to};
+use crate::CliSpec;
+use crate::Flow;
+use crate::Generator;
+use crate::Kotlin;
+use crate::OutputSpec;
+use crate::Python;
+use crate::ReflectOptions;
+use crate::Rust;
+use crate::TypeScript;
+use crate::generate_to_with_options;
+use crate::reflect_command_with_options;
 
 /// Name of the generated hidden subcommand.
 pub const BINDING_COMMAND_NAME: &str = "generate-binding";
@@ -27,6 +40,7 @@ pub fn binding_command() -> Command {
                 .arg(output_path_arg())
                 .arg(module_name_arg())
                 .args(output_contract_args())
+                .arg(include_hidden_arg())
                 .arg(
                     Arg::new("zod")
                         .long("zod")
@@ -53,6 +67,7 @@ pub fn binding_command() -> Command {
                 .arg(output_path_arg())
                 .arg(module_name_arg())
                 .args(output_contract_args())
+                .arg(include_hidden_arg())
                 .arg(
                     Arg::new("zod")
                         .long("zod")
@@ -79,6 +94,7 @@ pub fn binding_command() -> Command {
                 .arg(output_path_arg())
                 .arg(module_name_arg())
                 .args(output_contract_args())
+                .arg(include_hidden_arg())
                 .arg(
                     Arg::new("namespace")
                         .long("namespace")
@@ -99,7 +115,8 @@ pub fn binding_command() -> Command {
                 .about("Generate Rust bindings")
                 .arg(output_path_arg())
                 .arg(module_name_arg())
-                .args(output_contract_args()),
+                .args(output_contract_args())
+                .arg(include_hidden_arg()),
         )
         .subcommand(
             Command::new("kotlin")
@@ -107,6 +124,7 @@ pub fn binding_command() -> Command {
                 .arg(output_path_arg())
                 .arg(module_name_arg())
                 .args(output_contract_args())
+                .arg(include_hidden_arg())
                 .arg(
                     Arg::new("package_name")
                         .long("package")
@@ -144,6 +162,104 @@ pub fn generate_binding_from_matches(
     }
 }
 
+/// Generate bindings from matches produced by [`binding_command`], injecting
+/// caller-provided output specs into the reflected CLI model.
+///
+/// Unlike [`generate_binding_from_matches`], this variant always enables
+/// output-contract generation since the caller explicitly supplies the specs.
+pub fn generate_binding_from_matches_with_outputs(
+    cmd: &mut Command,
+    bin_name: &str,
+    matches: &ArgMatches,
+    outputs: Vec<OutputSpec>,
+) -> io::Result<PathBuf> {
+    let (gen_name, sub_m) = matches.subcommand().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "missing binding generator subcommand",
+        )
+    })?;
+
+    let opts = reflect_opts(sub_m);
+    let mut spec = reflect_command_with_options(cmd.clone(), bin_name.to_owned(), opts);
+    spec.outputs = outputs;
+
+    let out_dir = output_path(sub_m);
+
+    match gen_name {
+        "typescript" => {
+            let mut generator = TypeScript::new();
+            if let Some(module_name) = sub_m.get_one::<String>("module_name") {
+                generator = generator.module_name(module_name);
+            }
+            if sub_m.get_flag("zod") {
+                generator = generator.zod();
+            } else if sub_m.get_flag("zod_schemas") {
+                generator = generator.zod_schemas();
+            }
+            if sub_m.get_flag("node") {
+                generator = generator.node();
+            }
+            generator = generator.output_contracts();
+            write_spec(&generator, &spec, &out_dir)
+        }
+        "flow" => {
+            let mut generator = Flow::new();
+            if let Some(module_name) = sub_m.get_one::<String>("module_name") {
+                generator = generator.module_name(module_name);
+            }
+            if sub_m.get_flag("zod") {
+                generator = generator.zod();
+            } else if sub_m.get_flag("zod_schemas") {
+                generator = generator.zod_schemas();
+            }
+            if sub_m.get_flag("node") {
+                generator = generator.node();
+            }
+            generator = generator.output_contracts();
+            write_spec(&generator, &spec, &out_dir)
+        }
+        "python" => {
+            let mut generator = Python::new();
+            if let Some(module_name) = sub_m.get_one::<String>("module_name") {
+                generator = generator.module_name(module_name);
+            }
+            if let Some(namespace) = sub_m.get_one::<String>("namespace") {
+                generator = generator.namespace(namespace);
+            }
+            generator = generator.output_contracts();
+            if sub_m.get_flag("package") {
+                write_spec(&generator.package(), &spec, &out_dir)
+            } else {
+                write_spec(&generator, &spec, &out_dir)
+            }
+        }
+        "rust" => {
+            let mut generator = Rust::new();
+            if let Some(module_name) = sub_m.get_one::<String>("module_name") {
+                generator = generator.module_name(module_name);
+            }
+            generator = generator.output_contracts();
+            write_spec(&generator, &spec, &out_dir)
+        }
+        "kotlin" => {
+            let mut generator = Kotlin::new();
+            if let Some(module_name) = sub_m.get_one::<String>("module_name") {
+                generator = generator.module_name(module_name);
+            }
+            if let Some(package_name) = sub_m.get_one::<String>("package_name") {
+                generator = generator.package_name(package_name);
+            }
+            generator = generator.output_contracts();
+            write_spec(&generator, &spec, &out_dir)
+        }
+        name => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("unsupported binding generator `{name}`"),
+        )),
+    }
+}
+
 fn generate_typescript(
     cmd: &mut Command,
     bin_name: &str,
@@ -166,7 +282,13 @@ fn generate_typescript(
         generator = generator.output_contracts();
     }
 
-    generate_to(generator, cmd, bin_name, output_path(matches))
+    generate_to_with_options(
+        generator,
+        cmd,
+        bin_name,
+        output_path(matches),
+        reflect_opts(matches),
+    )
 }
 
 fn generate_flow(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
@@ -187,7 +309,13 @@ fn generate_flow(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io:
         generator = generator.output_contracts();
     }
 
-    generate_to(generator, cmd, bin_name, output_path(matches))
+    generate_to_with_options(
+        generator,
+        cmd,
+        bin_name,
+        output_path(matches),
+        reflect_opts(matches),
+    )
 }
 
 fn generate_python(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
@@ -204,10 +332,11 @@ fn generate_python(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> i
     }
 
     let out_dir = output_path(matches);
+    let opts = reflect_opts(matches);
     if matches.get_flag("package") {
-        generate_to(generator.package(), cmd, bin_name, out_dir)
+        generate_to_with_options(generator.package(), cmd, bin_name, out_dir, opts)
     } else {
-        generate_to(generator, cmd, bin_name, out_dir)
+        generate_to_with_options(generator, cmd, bin_name, out_dir, opts)
     }
 }
 
@@ -221,7 +350,13 @@ fn generate_rust(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io:
         generator = generator.output_contracts();
     }
 
-    generate_to(generator, cmd, bin_name, output_path(matches))
+    generate_to_with_options(
+        generator,
+        cmd,
+        bin_name,
+        output_path(matches),
+        reflect_opts(matches),
+    )
 }
 
 fn generate_kotlin(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> io::Result<PathBuf> {
@@ -237,7 +372,13 @@ fn generate_kotlin(cmd: &mut Command, bin_name: &str, matches: &ArgMatches) -> i
         generator = generator.output_contracts();
     }
 
-    generate_to(generator, cmd, bin_name, output_path(matches))
+    generate_to_with_options(
+        generator,
+        cmd,
+        bin_name,
+        output_path(matches),
+        reflect_opts(matches),
+    )
 }
 
 fn output_path(matches: &ArgMatches) -> PathBuf {
@@ -265,6 +406,25 @@ fn module_name_arg() -> Arg {
         .action(ArgAction::Set)
 }
 
+fn include_hidden_arg() -> Arg {
+    Arg::new("include_hidden")
+        .long("include-hidden")
+        .help(
+            "Include hidden subcommands and args in the generated bindings. \
+             Use for 1st-party callers that need to invoke hidden surfaces \
+             (e.g. Meta-internal tools embedded in a public CLI).",
+        )
+        .action(ArgAction::SetTrue)
+}
+
+fn reflect_opts(matches: &ArgMatches) -> ReflectOptions {
+    let mut opts = ReflectOptions::default();
+    if matches.get_flag("include_hidden") {
+        opts.include_hidden = true;
+    }
+    opts
+}
+
 fn output_contract_args() -> [Arg; 2] {
     [
         Arg::new("output_contracts")
@@ -281,4 +441,25 @@ fn output_contract_args() -> [Arg; 2] {
 
 fn wants_output_contracts(matches: &ArgMatches) -> bool {
     matches.get_flag("output_contracts") && !matches.get_flag("no_output_contracts")
+}
+
+fn write_spec(
+    generator: &impl Generator,
+    spec: &CliSpec,
+    out_dir: &PathBuf,
+) -> io::Result<PathBuf> {
+    use std::io::Write;
+
+    let files = generator.generate_files(spec)?;
+    std::fs::create_dir_all(out_dir)?;
+    for generated in files {
+        let path = out_dir.join(&generated.relative_path);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut file = std::fs::File::create(&path)?;
+        file.write_all(&generated.contents)?;
+        file.flush()?;
+    }
+    Ok(out_dir.join(generator.file_name(&spec.bin_name)))
 }

@@ -1,7 +1,13 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
-use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
-use clap_types::{BINDING_COMMAND_NAME, binding_command, generate_binding_from_matches};
+use clap::Arg;
+use clap::ArgAction;
+use clap::Command;
+use clap::ValueHint;
+use clap::value_parser;
+use clap_types::BINDING_COMMAND_NAME;
+use clap_types::binding_command;
+use clap_types::generate_binding_from_matches;
 
 fn build_cli() -> Command {
     Command::new("repo-agent")

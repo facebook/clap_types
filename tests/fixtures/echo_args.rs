@@ -13,7 +13,11 @@
 
 use std::path::PathBuf;
 
-use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
+use clap::Arg;
+use clap::ArgAction;
+use clap::ArgMatches;
+use clap::Command;
+use clap::value_parser;
 
 pub(crate) fn cli() -> Command {
     Command::new("echo-args")

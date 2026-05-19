@@ -9,11 +9,17 @@ mod repo_agent_bindings;
 
 use std::path::PathBuf;
 
-use data_forge_bindings::{
-    build_dataset_import_command, DatasetImportArgs, DatasetImportFormat, DatasetImportLogLevel,
-};
-use opsctl_bindings::{build_deploy_command, DeployArgs, DeployEnvironment, DeployOutput};
-use repo_agent_bindings::{build_agent_run_command, AgentRunArgs, AgentRunModel};
+use data_forge_bindings::DatasetImportArgs;
+use data_forge_bindings::DatasetImportFormat;
+use data_forge_bindings::DatasetImportLogLevel;
+use data_forge_bindings::build_dataset_import_command;
+use opsctl_bindings::DeployArgs;
+use opsctl_bindings::DeployEnvironment;
+use opsctl_bindings::DeployOutput;
+use opsctl_bindings::build_deploy_command;
+use repo_agent_bindings::AgentRunArgs;
+use repo_agent_bindings::AgentRunModel;
+use repo_agent_bindings::build_agent_run_command;
 
 fn main() {
     smoke_data_forge();

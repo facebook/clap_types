@@ -1,12 +1,18 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
-use std::fs::{self, File};
-use std::io::{self, Write};
-use std::path::{Component, Path, PathBuf};
+use std::fs::File;
+use std::fs::{self};
+use std::io::Write;
+use std::io::{self};
+use std::path::Component;
+use std::path::Path;
+use std::path::PathBuf;
 
 use clap::Command;
 
 use crate::model::CliSpec;
+use crate::reflect::ReflectOptions;
+use crate::reflect::reflect_command_with_options;
 use crate::reflect_command_with_name;
 
 /// Controls whether generators emit output-contract metadata and parser helpers.
@@ -109,9 +115,28 @@ where
     S: Into<String>,
     P: AsRef<Path>,
 {
+    generate_to_with_options(generator, cmd, bin_name, out_dir, ReflectOptions::default())
+}
+
+/// Generate bindings for `cmd` under `out_dir` with explicit reflect options.
+///
+/// Pass [`ReflectOptions::all`] to include hidden subcommands and args in the
+/// emitted client.
+pub fn generate_to_with_options<G, S, P>(
+    generator: G,
+    cmd: &mut Command,
+    bin_name: S,
+    out_dir: P,
+    opts: ReflectOptions,
+) -> io::Result<PathBuf>
+where
+    G: Generator,
+    S: Into<String>,
+    P: AsRef<Path>,
+{
     let bin_name = bin_name.into();
     let out_dir = out_dir.as_ref();
-    let spec = reflect_command_with_name(cmd.clone(), bin_name.clone());
+    let spec = reflect_command_with_options(cmd.clone(), bin_name.clone(), opts);
     let files = generator.generate_files(&spec)?;
 
     fs::create_dir_all(out_dir)?;

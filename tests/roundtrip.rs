@@ -9,12 +9,17 @@
 use std::collections::HashMap;
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command as ProcCommand;
 use std::sync::OnceLock;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
-use clap_types::{Flow, Python, TypeScript, generate_to};
+use clap_types::Flow;
+use clap_types::Python;
+use clap_types::TypeScript;
+use clap_types::generate_to;
 
 #[path = "fixtures/echo_args.rs"]
 mod echo_args;

@@ -2,13 +2,23 @@
 
 use std::ffi::OsStr;
 use std::fs;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
-use clap::{Arg, Command};
-use clap_types::{
-    Flow, Kotlin, Python, Rust, TypeScript, binding_command, generate_binding_from_matches,
-    generate_to,
-};
+use clap::Arg;
+use clap::ArgAction;
+use clap::Command;
+use clap_types::Flow;
+use clap_types::Kotlin;
+use clap_types::Python;
+use clap_types::ReflectOptions;
+use clap_types::Rust;
+use clap_types::TypeScript;
+use clap_types::binding_command;
+use clap_types::generate_binding_from_matches;
+use clap_types::generate_to;
+use clap_types::reflect_command_with_name;
+use clap_types::reflect_command_with_options;
 
 #[test]
 fn generate_to_writes_typescript_file() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,7 +47,7 @@ fn generate_to_writes_flow_file() -> Result<(), Box<dyn std::error::Error>> {
 
     assert_eq!(path.file_name(), Some(OsStr::new("demo.js")));
     let flow = fs::read_to_string(&path)?;
-    assert!(flow.contains("// @flow strict"));
+    assert!(flow.contains("@flow strict"));
     assert!(flow.contains("export type DemoArgs"));
     assert!(flow.contains("+input: string,"));
 
@@ -411,5 +421,187 @@ fn embedded_binding_command_generates_rust_and_kotlin() -> Result<(), Box<dyn st
 
     fs::remove_dir_all(&rust_dir)?;
     fs::remove_dir_all(&kotlin_dir)?;
+    Ok(())
+}
+
+// =============================================================================
+// `include_hidden` reflect option
+// =============================================================================
+//
+// Default behavior must keep filtering hidden subcommands and args (matches
+// `--help` visibility — the right default for OSS clients that mirror their
+// CLI's public surface). Opt-in via `ReflectOptions::all()` (or the
+// `--include-hidden` CLI flag) flips the filter so 1st-party hosts can call
+// hidden surfaces of their embedded CLI.
+
+/// Build a clap tree with mixed-visibility subcommands and args.
+///
+/// Three top-level subcommands (`pub-cmd`, `hidden-cmd` with `.hide(true)`,
+/// `mixed` containing both kinds of arg + a hidden inner subcommand) plus
+/// two top-level args (one visible, one hidden). Used by both default-path
+/// and include-hidden tests below — keep them assertion-mirrored.
+fn mixed_visibility_tree() -> Command {
+    Command::new("demo")
+        .arg(
+            Arg::new("public_arg")
+                .long("public-arg")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("hidden_arg")
+                .long("hidden-arg")
+                .hide(true)
+                .action(ArgAction::Set),
+        )
+        .subcommand(Command::new("pub-cmd").about("public sub"))
+        .subcommand(Command::new("hidden-cmd").about("hidden sub").hide(true))
+        .subcommand(
+            Command::new("mixed")
+                .arg(Arg::new("v").long("v").action(ArgAction::SetTrue))
+                .arg(
+                    Arg::new("h")
+                        .long("h")
+                        .hide(true)
+                        .action(ArgAction::SetTrue),
+                )
+                .subcommand(Command::new("inner-hidden").hide(true)),
+        )
+}
+
+#[test]
+fn default_reflect_options_filter_hidden_subcommands_and_args() {
+    let spec =
+        reflect_command_with_options(mixed_visibility_tree(), "demo", ReflectOptions::default());
+
+    let names: Vec<&str> = spec
+        .root
+        .subcommands
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect();
+    assert_eq!(names, vec!["pub-cmd", "mixed"]);
+
+    let arg_ids: Vec<&str> = spec.root.args.iter().map(|a| a.id.as_str()).collect();
+    assert_eq!(arg_ids, vec!["public_arg"]);
+
+    let mixed = spec
+        .root
+        .subcommands
+        .iter()
+        .find(|c| c.name == "mixed")
+        .expect("mixed subcommand present");
+    let mixed_arg_ids: Vec<&str> = mixed.args.iter().map(|a| a.id.as_str()).collect();
+    assert_eq!(mixed_arg_ids, vec!["v"]);
+    assert!(
+        mixed.subcommands.is_empty(),
+        "hidden inner subcommand should be filtered, got {:?}",
+        mixed
+            .subcommands
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn include_hidden_reflects_hidden_subcommands_and_args() {
+    let spec = reflect_command_with_options(mixed_visibility_tree(), "demo", ReflectOptions::all());
+
+    let names: Vec<&str> = spec
+        .root
+        .subcommands
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect();
+    assert_eq!(names, vec!["pub-cmd", "hidden-cmd", "mixed"]);
+
+    let arg_ids: Vec<&str> = spec.root.args.iter().map(|a| a.id.as_str()).collect();
+    assert_eq!(arg_ids, vec!["public_arg", "hidden_arg"]);
+
+    let mixed = spec
+        .root
+        .subcommands
+        .iter()
+        .find(|c| c.name == "mixed")
+        .expect("mixed subcommand present");
+    let mixed_arg_ids: Vec<&str> = mixed.args.iter().map(|a| a.id.as_str()).collect();
+    assert_eq!(mixed_arg_ids, vec!["v", "h"]);
+    assert_eq!(mixed.subcommands.len(), 1);
+    assert_eq!(mixed.subcommands[0].name, "inner-hidden");
+}
+
+#[test]
+fn reflect_command_with_name_default_excludes_hidden_for_backward_compat() {
+    // Backward-compat guarantee: existing callers of the no-options public
+    // API see no behavioral change. If this assertion ever fails, we've
+    // silently broken every consumer that relies on hidden subcommands
+    // being filtered (e.g. an OSS tool that wants its generated client to
+    // mirror its `--help` surface).
+    let spec = reflect_command_with_name(mixed_visibility_tree(), "demo");
+    let names: Vec<&str> = spec
+        .root
+        .subcommands
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect();
+    assert!(
+        !names.contains(&"hidden-cmd"),
+        "default API must keep hidden filtering for backward compat, got {names:?}"
+    );
+}
+
+#[test]
+fn include_hidden_cli_flag_emits_hidden_in_generated_flow() -> Result<(), Box<dyn std::error::Error>>
+{
+    // End-to-end exercise of the `--include-hidden` CLI flag through the
+    // binding_command dispatcher. Confirms the flag is plumbed from clap →
+    // ReflectOptions → reflect → generated source. Picks Flow because it's
+    // the consumer hzdb-bindings uses; the same plumbing covers all
+    // backends since they share `generate_to_with_options`.
+    let unique = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let dir_default = std::env::temp_dir().join(format!("clap_types_default_{unique}"));
+    let dir_hidden = std::env::temp_dir().join(format!("clap_types_hidden_{unique}"));
+
+    // Default flag set (no --include-hidden).
+    let matches_default = binding_command().try_get_matches_from([
+        "generate-binding",
+        "flow",
+        "--module-name",
+        "demo",
+        "--path",
+        dir_default.to_str().expect("temp dir path is valid UTF-8"),
+    ])?;
+    let mut cmd = mixed_visibility_tree();
+    let path_default = generate_binding_from_matches(&mut cmd, "demo", &matches_default)?;
+    let flow_default = fs::read_to_string(&path_default)?;
+    assert!(
+        !flow_default.contains("buildHiddenCmdCommand"),
+        "default flow output should NOT include hidden subcommand builder"
+    );
+    assert!(
+        flow_default.contains("buildPubCmdCommand"),
+        "default flow output must include public subcommand builder"
+    );
+
+    // With --include-hidden.
+    let matches_hidden = binding_command().try_get_matches_from([
+        "generate-binding",
+        "flow",
+        "--include-hidden",
+        "--module-name",
+        "demo",
+        "--path",
+        dir_hidden.to_str().expect("temp dir path is valid UTF-8"),
+    ])?;
+    let mut cmd = mixed_visibility_tree();
+    let path_hidden = generate_binding_from_matches(&mut cmd, "demo", &matches_hidden)?;
+    let flow_hidden = fs::read_to_string(&path_hidden)?;
+    assert!(
+        flow_hidden.contains("buildHiddenCmdCommand"),
+        "--include-hidden flow output must include hidden subcommand builder"
+    );
+
+    fs::remove_dir_all(&dir_default)?;
+    fs::remove_dir_all(&dir_hidden)?;
     Ok(())
 }

@@ -1,7 +1,10 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
-use clap::{Arg, ArgAction, Command};
-use clap_types::{TypeScript, generate};
+use clap::Arg;
+use clap::ArgAction;
+use clap::Command;
+use clap_types::TypeScript;
+use clap_types::generate;
 
 fn build_cli() -> Command {
     Command::new("example")

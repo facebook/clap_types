@@ -4,14 +4,46 @@ use std::any::TypeId;
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-use clap::builder::{ValueParser, ValueRange};
-use clap::{Arg, ArgAction, Command, ValueHint};
+use clap::Arg;
+use clap::ArgAction;
+use clap::Command;
+use clap::ValueHint;
+use clap::builder::ValueParser;
+use clap::builder::ValueRange;
 
-use crate::model::{
-    ArgKind, ArgSpec, CliSpec, CommandSpec, EnumValue, OutputSpec, ValueArity, ValueSpec, ValueType,
-};
+use crate::model::ArgKind;
+use crate::model::ArgSpec;
+use crate::model::CliSpec;
+use crate::model::CommandSpec;
+use crate::model::EnumValue;
+use crate::model::OutputSpec;
+use crate::model::ValueArity;
+use crate::model::ValueSpec;
+use crate::model::ValueType;
 #[cfg(feature = "unstable-output-contracts")]
 use crate::output_contracts::OutputContracts;
+
+/// Options controlling how a clap command is reflected into the model.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ReflectOptions {
+    /// When true, subcommands and args marked with `clap::Command::hide(true)` /
+    /// `clap::Arg::hide(true)` are still reflected. Defaults to false (matches
+    /// `--help` visibility), so generated client bindings only expose the
+    /// public CLI surface unless the caller explicitly opts in.
+    pub include_hidden: bool,
+}
+
+impl ReflectOptions {
+    /// Convenience: reflect everything, including hidden subcommands and args.
+    /// Use when generating bindings for a 1st-party caller that needs to invoke
+    /// hidden surfaces (e.g. Meta-internal tools embedded in a public CLI).
+    #[must_use]
+    pub fn all() -> Self {
+        Self {
+            include_hidden: true,
+        }
+    }
+}
 
 /// Reflect a clap command into the language-neutral `clap_types` model.
 #[must_use]
@@ -25,26 +57,44 @@ pub fn reflect_command(cmd: Command) -> CliSpec {
 
 /// Reflect a clap command into the language-neutral model with an explicit binary name.
 #[must_use]
-pub fn reflect_command_with_name(mut cmd: Command, bin_name: impl Into<String>) -> CliSpec {
+pub fn reflect_command_with_name(cmd: Command, bin_name: impl Into<String>) -> CliSpec {
+    reflect_command_with_options(cmd, bin_name, ReflectOptions::default())
+}
+
+/// Reflect a clap command into the language-neutral model with explicit options.
+///
+/// Pass [`ReflectOptions::all`] to include hidden subcommands and args in the
+/// generated bindings.
+#[must_use]
+pub fn reflect_command_with_options(
+    mut cmd: Command,
+    bin_name: impl Into<String>,
+    opts: ReflectOptions,
+) -> CliSpec {
     cmd = cmd.disable_help_subcommand(true);
     cmd.build();
     CliSpec {
         bin_name: bin_name.into(),
-        root: reflect_one_command(&cmd),
-        outputs: output_specs(&cmd),
+        root: reflect_one_command(&cmd, &opts),
+        outputs: output_specs(&cmd, &opts),
     }
 }
 
 #[cfg(feature = "unstable-output-contracts")]
-fn output_specs(cmd: &Command) -> Vec<OutputSpec> {
+fn output_specs(cmd: &Command, opts: &ReflectOptions) -> Vec<OutputSpec> {
     let mut specs = Vec::<OutputSpec>::new();
     let mut path = Vec::<String>::new();
-    collect_output_specs(cmd, &mut path, &mut specs);
+    collect_output_specs(cmd, opts, &mut path, &mut specs);
     specs
 }
 
 #[cfg(feature = "unstable-output-contracts")]
-fn collect_output_specs(cmd: &Command, path: &mut Vec<String>, specs: &mut Vec<OutputSpec>) {
+fn collect_output_specs(
+    cmd: &Command,
+    opts: &ReflectOptions,
+    path: &mut Vec<String>,
+    specs: &mut Vec<OutputSpec>,
+) {
     if let Some(contracts) = cmd.get::<OutputContracts>() {
         specs.extend(
             contracts
@@ -55,20 +105,20 @@ fn collect_output_specs(cmd: &Command, path: &mut Vec<String>, specs: &mut Vec<O
 
     for subcommand in cmd
         .get_subcommands()
-        .filter(|subcommand| !subcommand.is_hide_set())
+        .filter(|subcommand| opts.include_hidden || !subcommand.is_hide_set())
     {
         path.push(subcommand.get_name().to_owned());
-        collect_output_specs(subcommand, path, specs);
+        collect_output_specs(subcommand, opts, path, specs);
         path.pop();
     }
 }
 
 #[cfg(not(feature = "unstable-output-contracts"))]
-fn output_specs(_cmd: &Command) -> Vec<OutputSpec> {
+fn output_specs(_cmd: &Command, _opts: &ReflectOptions) -> Vec<OutputSpec> {
     Vec::new()
 }
 
-fn reflect_one_command(cmd: &Command) -> CommandSpec {
+fn reflect_one_command(cmd: &Command, opts: &ReflectOptions) -> CommandSpec {
     CommandSpec {
         name: cmd.get_name().to_owned(),
         display_name: cmd.get_display_name().map(str::to_owned),
@@ -76,19 +126,19 @@ fn reflect_one_command(cmd: &Command) -> CommandSpec {
         long_about: cmd.get_long_about().map(ToString::to_string),
         args: cmd
             .get_arguments()
-            .filter(|arg| should_reflect_arg(arg))
+            .filter(|arg| should_reflect_arg(arg, opts))
             .map(reflect_arg)
             .collect(),
         subcommands: cmd
             .get_subcommands()
-            .filter(|subcommand| !subcommand.is_hide_set())
-            .map(reflect_one_command)
+            .filter(|subcommand| opts.include_hidden || !subcommand.is_hide_set())
+            .map(|subcommand| reflect_one_command(subcommand, opts))
             .collect(),
     }
 }
 
-fn should_reflect_arg(arg: &Arg) -> bool {
-    if arg.is_hide_set() {
+fn should_reflect_arg(arg: &Arg, opts: &ReflectOptions) -> bool {
+    if arg.is_hide_set() && !opts.include_hidden {
         return false;
     }
 
@@ -232,13 +282,24 @@ fn is_big_integer_type(id: &impl PartialEq<TypeId>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use clap::{Arg, ArgAction, Command, value_parser};
+    use clap::Arg;
+    use clap::ArgAction;
+    use clap::Command;
+    use clap::value_parser;
 
     use super::reflect_command_with_name;
-    use crate::model::{ArgKind, ValueType};
-
     #[cfg(feature = "unstable-output-contracts")]
-    use crate::{ClapTypesCommandExt, OutputContract, OutputEncoding, OutputMode, OutputSchema};
+    use crate::ClapTypesCommandExt;
+    #[cfg(feature = "unstable-output-contracts")]
+    use crate::OutputContract;
+    #[cfg(feature = "unstable-output-contracts")]
+    use crate::OutputEncoding;
+    #[cfg(feature = "unstable-output-contracts")]
+    use crate::OutputMode;
+    #[cfg(feature = "unstable-output-contracts")]
+    use crate::OutputSchema;
+    use crate::model::ArgKind;
+    use crate::model::ValueType;
 
     #[test]
     fn reflects_visible_args_and_subcommands() {

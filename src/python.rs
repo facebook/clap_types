@@ -1,17 +1,35 @@
 // Copyright (c) Meta Platforms, Inc. and affiliates.
 
 use std::collections::BTreeSet;
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::io::Write;
+use std::io::{self};
+use std::path::Path;
+use std::path::PathBuf;
 
-use crate::codegen::{
-    collapse_lines, combined_args, command_pieces, command_type_prefix,
-    ensure_unique_command_prefixes, inherited_globals, is_grouped_repeated, is_required,
-    lower_join, option_token, output_encoding, output_mode, output_schema, pascal_case,
-    quote_double, safe_identifier,
-};
-use crate::generate::{GeneratedFile, Generator, OutputContractGeneration};
-use crate::model::{ArgKind, ArgSpec, CliSpec, CommandSpec, ValueType};
+use crate::codegen::collapse_lines;
+use crate::codegen::combined_args;
+use crate::codegen::command_pieces;
+use crate::codegen::command_type_prefix;
+use crate::codegen::ensure_unique_command_prefixes;
+use crate::codegen::inherited_globals;
+use crate::codegen::is_grouped_repeated;
+use crate::codegen::is_required;
+use crate::codegen::lower_join;
+use crate::codegen::option_token;
+use crate::codegen::output_encoding;
+use crate::codegen::output_mode;
+use crate::codegen::output_schema;
+use crate::codegen::pascal_case;
+use crate::codegen::quote_double;
+use crate::codegen::safe_identifier;
+use crate::generate::GeneratedFile;
+use crate::generate::Generator;
+use crate::generate::OutputContractGeneration;
+use crate::model::ArgKind;
+use crate::model::ArgSpec;
+use crate::model::CliSpec;
+use crate::model::CommandSpec;
+use crate::model::ValueType;
 
 /// Options for the Python backend.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -1076,9 +1094,13 @@ fn docstring(input: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use clap::{Arg, ArgAction, Command, value_parser};
+    use clap::Arg;
+    use clap::ArgAction;
+    use clap::Command;
+    use clap::value_parser;
 
-    use crate::{Python, generate};
+    use crate::Python;
+    use crate::generate;
 
     #[test]
     fn generates_typed_python_builders() {

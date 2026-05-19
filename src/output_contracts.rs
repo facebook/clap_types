@@ -3,7 +3,10 @@
 use clap::Command;
 use clap::builder::CommandExt;
 
-use crate::model::{OutputEncoding, OutputMode, OutputSchema, OutputSpec};
+use crate::model::OutputEncoding;
+use crate::model::OutputMode;
+use crate::model::OutputSchema;
+use crate::model::OutputSpec;
 
 /// Output contracts attached to a clap command through clap's unstable extension API.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
